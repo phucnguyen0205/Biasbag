@@ -5,6 +5,7 @@ import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getBannerBlur } from "@/lib/banners/placeholder";
+import { PERF_DEGRADE_FLAGS } from "@/components/perf/perf-degrade";
 import type { Banner } from "@/lib/types";
 
 /** Thời gian mỗi lần chuyển banner (ms). */
@@ -158,28 +159,49 @@ export default function HeroCarousel({
               ) : null}
 
               {/* Ảnh ngang — ẩn dưới `md` nếu đã có ảnh mobile riêng. */}
-              <Image
-                src={b.image_url}
-                alt={b.alt_text ?? ""}
-                fill
-                // Ảnh đầu tiên = phần tử LCP → preload + fetch ưu tiên cao.
-                priority={i === 0}
-                fetchPriority={i === 0 ? "high" : "auto"}
-                // Truyền TRỰC TIẾP data-URL LQIP làm `placeholder` (không
-                // phải `placeholder="blur"`): khi đó Next.js render
-                // `background-image:url(data:...)` → hiển thị đúng tông màu
-                // thật của banner trong lúc ảnh lớn đang tải.
-                //
-                // `placeholder="blur"` mặc định của Next.js chỉ vẽ một SVG
-                // blur chung, không phải màu thật của ảnh.
-                placeholder={getBannerBlur(b.image_url) ?? "empty"}
-                sizes="100vw"
-                quality={72}
-                className={cn(
-                  "object-cover",
-                  b.image_url_mobile && "hidden md:block",
-                )}
-              />
+              {/*
+                ⚠️ Nhánh KIỂM THỬ HIỆU NĂNG (`PERF_DEGRADE_FLAGS.lcp`):
+                thay `<Image priority>` bằng `<img>` thuần trỏ tới ảnh nặng
+                (~2.4 MB), KHÔNG preload, KHÔNG `fetchpriority="high"` →
+                LCP tăng mạnh.
+
+                Khi cờ tắt (mặc định) → dùng `<Image priority>` như cũ, giữ
+                nguyên 99% điểm.
+              */}
+              {PERF_DEGRADE_FLAGS.lcp ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src="/banners/perf-heavy.jpg"
+                  alt={b.alt_text ?? ""}
+                  className={cn(
+                    "absolute inset-0 h-full w-full object-cover",
+                    b.image_url_mobile && "hidden md:block",
+                  )}
+                />
+              ) : (
+                <Image
+                  src={b.image_url}
+                  alt={b.alt_text ?? ""}
+                  fill
+                  // Ảnh đầu tiên = phần tử LCP → preload + fetch ưu tiên cao.
+                  priority={i === 0}
+                  fetchPriority={i === 0 ? "high" : "auto"}
+                  // Truyền TRỰC TIẾP data-URL LQIP làm `placeholder` (không
+                  // phải `placeholder="blur"`): khi đó Next.js render
+                  // `background-image:url(data:...)` → hiển thị đúng tông màu
+                  // thật của banner trong lúc ảnh lớn đang tải.
+                  //
+                  // `placeholder="blur"` mặc định của Next.js chỉ vẽ một SVG
+                  // blur chung, không phải màu thật của ảnh.
+                  placeholder={getBannerBlur(b.image_url) ?? "empty"}
+                  sizes="100vw"
+                  quality={72}
+                  className={cn(
+                    "object-cover",
+                    b.image_url_mobile && "hidden md:block",
+                  )}
+                />
+              )}
             </div>
           ) : null,
         )}

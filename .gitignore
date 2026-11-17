@@ -9,3 +9,6 @@ build
 .vercel
 next-env.d.ts
 tsconfig.tsbuildinfo
+
+# Ảnh nặng dùng cho benchmark hiệu năng (sinh tự động, không commit)
+public/banners/perf-heavy.jpg

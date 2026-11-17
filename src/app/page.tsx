@@ -18,6 +18,11 @@ import ProductCard from "@/components/product/product-card";
 import HeroCarousel from "@/components/home/hero-carousel";
 import { SITE, STYLE_LINES, CHANNELS } from "@/lib/constants";
 import { buildPageMetadata } from "@/lib/seo";
+import {
+  DelayedRender,
+  LateBanner,
+  SlowMainThread,
+} from "@/components/perf/perf-degrade";
 
 /**
  * ISR — trang chủ được cache lại mỗi 5 phút.
@@ -147,6 +152,21 @@ export default async function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
+      {/* ⚠️ KIỂM THỬ HIỆU NĂNG — kéo CLS (25% tổng điểm).
+          Banner cao 150px chèn muộn 1.2s mà không đặt sẵn chiều cao →
+          toàn bộ nội dung bên dưới bị đẩy xuống ~150px.
+          Chỉ hoạt động khi `NEXT_PUBLIC_PERF_DEGRADE` có chứa `cls`. */}
+      <LateBanner />
+
+      {/* ⚠️ KIỂM THỬ HIỆU NĂNG — kéo TBT (30% tổng điểm).
+          Khoá Main Thread ~1.8s ngay sau khi trang tải xong.
+          Chỉ hoạt động khi `NEXT_PUBLIC_PERF_DEGRADE` có chứa `tbt`. */}
+      <SlowMainThread />
+
+      {/* ⚠️ KIỂM THỬ HIỆU NĂNG — kéo LCP (25% tổng điểm).
+          Trì hoãn 1.5s trước khi render nội dung chính (mô phỏng tải chậm).
+          Chỉ hoạt động khi `NEXT_PUBLIC_PERF_DEGRADE` có chứa `delay`. */}
+      <DelayedRender>
       {/* ── Hero ───────────────────────────────────────────────────────────
           Banner nền dạng carousel. Lớp overlay giữ wordmark + tagline +
           mô tả + CTA.
@@ -453,6 +473,7 @@ export default async function HomePage() {
           </a>
         </div>
       </section>
+      </DelayedRender>
     </>
   );
 }

@@ -11,6 +11,8 @@
     "seed:images": "tsx --env-file=.env.local scripts/seed-images.ts",
     "check:env": "tsx --env-file=.env.local scripts/check-env.ts",
     "check:seo": "tsx scripts/check-seo.ts",
+    "perf:heavy-image": "tsx scripts/make-heavy-image.ts",
+    "measure:perf": "bash scripts/measure-perf.sh",
     "auth:admin": "tsx --env-file=.env.local scripts/create-admin.ts",
     "auth:delete": "tsx --env-file=.env.local scripts/delete-user.ts",
     "db:sync": "tsx scripts/sync-migration.ts",
