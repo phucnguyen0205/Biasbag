@@ -208,6 +208,9 @@ export const STYLE_LINES = [
 /**
  * Menu điều hướng chính ở header.
  *
+ * "Trang chủ" là mục đầu tiên — người dùng có thể về trang chủ từ tab
+ * trên header, không chỉ bằng cách bấm logo.
+ *
  * "Sản phẩm" là menu cha: click vào chữ "Sản phẩm" sẽ vào thẳng trang
  * `/products`, phần chevron bên cạnh (hoặc hover chuột) mở dropdown liệt kê
  * các dòng sản phẩm. Danh sách dòng lấy từ `STYLE_LINES` để chỉ có một
@@ -215,6 +218,7 @@ export const STYLE_LINES = [
  * sản phẩm cùng cập nhật.
  */
 export const NAV_LINKS = [
+  { href: "/", label: "Trang chủ" },
   {
     href: "/products",
     label: "Sản phẩm",
@@ -224,7 +228,7 @@ export const NAV_LINKS = [
     })),
   },
   { href: "/blog", label: "Bài viết" },
-  { href: "/about", label: "Về BIAS BAG" },
+  { href: "/about", label: "Về chúng tôi" },
   { href: "/contact", label: "Liên hệ" },
 ] as const;
 

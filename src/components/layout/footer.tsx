@@ -56,7 +56,7 @@ export default function Footer() {
             </li>
             <li>
               <Link href="/about" className="hover:text-white">
-                Về BIAS BAG
+                Về chúng tôi
               </Link>
             </li>
             <li>

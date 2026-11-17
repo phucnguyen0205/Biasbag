@@ -92,7 +92,7 @@ export default function AboutPage() {
       },
       breadcrumbJsonLd([
         { name: "Trang chủ", url: SITE_URL },
-        { name: "Về BIAS BAG", url: `${SITE_URL}/about` },
+        { name: "Về chúng tôi", url: `${SITE_URL}/about` },
       ]),
     ],
   };

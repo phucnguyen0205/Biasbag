@@ -195,7 +195,7 @@ export default async function HomePage() {
               href="/about"
               className="btn border border-white/30 px-6 py-3 text-white hover:bg-white/10"
             >
-              Về BIAS BAG
+              Về chúng tôi
             </Link>
           </div>
 
