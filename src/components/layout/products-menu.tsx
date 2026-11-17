@@ -14,12 +14,15 @@ type MenuGroup = {
 };
 
 /**
- * Menu dropdown "Sản phẩm" ở header.
+ * Menu "Sản phẩm" ở header.
  *
- * Gộp "Tất cả sản phẩm" + các dòng sản phẩm vào một tab chung.
+ * Cấu trúc: chữ "Sản phẩm" là LINK vào thẳng trang `/products`; phần chevron
+ * bên cạnh (hoặc hover chuột trên desktop) mở dropdown liệt kê các dòng
+ * sản phẩm.
  *
  * Hành vi:
- *   - Mở bằng click (nhấn 1 lần) hoặc hover (con trỏ máy tính).
+ *   - Click chữ "Sản phẩm" → điều hướng thẳng tới `/products`.
+ *   - Click chevron (hoặc hover chuột) → mở/đóng dropdown danh mục.
  *   - Đóng khi click ra ngoài, khi bấm `Escape`, hoặc khi chuyển trang.
  *   - Có `aria-expanded` / `aria-haspopup` để hỗ trợ trình đọc màn hình.
  *   - Hover chỉ bật khi thiết bị thật sự có con trỏ (`hover:hover`) — tránh
@@ -27,7 +30,7 @@ type MenuGroup = {
  */
 export default function ProductsMenu({
   link,
-  transparent,
+    transparent,
 }: {
   link: MenuGroup;
   transparent: boolean;
@@ -47,7 +50,7 @@ export default function ProductsMenu({
   const activeCategory = useActiveCategory();
 
   // Đang ở trang sản phẩm (kể cả khi lọc theo danh mục) → highlight tab cha.
-  const active = pathname === link.href;
+  const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
 
   // Click ra ngoài → đóng menu.
   useEffect(() => {
@@ -75,6 +78,21 @@ export default function ProductsMenu({
     setOpen(false);
   }, [pathname]);
 
+  const tabClass = cn(
+    "rounded-full px-3 py-2 text-sm font-medium transition-colors",
+    active
+      ? cn(
+          transparent
+            ? "bg-white/20 text-white"
+            : "bg-blush-50 text-blush-700",
+        )
+      : cn(
+          transparent
+            ? "text-white/85 hover:bg-white/15 hover:text-white"
+            : "text-ink-600 hover:bg-ink-50 hover:text-ink-900",
+        ),
+  );
+
   return (
     <div
       ref={ref}
@@ -82,34 +100,42 @@ export default function ProductsMenu({
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-haspopup="true"
-        className={cn(
-          "flex items-center gap-1 rounded-full px-3 py-2 text-sm font-medium transition-colors",
-          active
-            ? cn(
-                transparent
-                  ? "bg-white/20 text-white"
-                  : "bg-blush-50 text-blush-700",
-              )
-            : cn(
-                transparent
-                  ? "text-white/85 hover:bg-white/15 hover:text-white"
-                  : "text-ink-600 hover:bg-ink-50 hover:text-ink-900",
-              ),
-        )}
-      >
-        {link.label}
-        <ChevronDown
+      <div className="flex items-center">
+        {/* Chữ "Sản phẩm" → vào thẳng trang sản phẩm */}
+        <Link href={link.href} className={tabClass}>
+          {link.label}
+        </Link>
+
+        {/* Chevron → mở/đóng dropdown danh mục */}
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-haspopup="true"
+          aria-label={`Xem các dòng ${link.label.toLowerCase()}`}
           className={cn(
-            "h-3.5 w-3.5 transition-transform duration-200",
-            open && "rotate-180",
+            "flex items-center rounded-full p-2 transition-colors",
+            active
+              ? cn(
+                  transparent
+                    ? "bg-white/20 text-white"
+                    : "bg-blush-50 text-blush-700",
+                )
+              : cn(
+                  transparent
+                    ? "text-white/85 hover:bg-white/15 hover:text-white"
+                    : "text-ink-600 hover:bg-ink-50 hover:text-ink-900",
+                ),
           )}
-        />
-      </button>
+        >
+          <ChevronDown
+            className={cn(
+              "h-3.5 w-3.5 transition-transform duration-200",
+              open && "rotate-180",
+            )}
+          />
+        </button>
+      </div>
 
       {/* Bảng dropdown */}
       <div
@@ -121,19 +147,11 @@ export default function ProductsMenu({
         )}
       >
         <div className="overflow-hidden rounded-2xl border border-ink-100 bg-white p-2 shadow-[0_24px_60px_-20px_rgba(15,23,42,0.28)]">
-          {/* Danh sách danh mục.
-              "Tất cả sản phẩm" là mục ĐẦU TIÊN trong cùng một danh sách với
-              các dòng sản phẩm (không tách ô riêng) → nhìn gọn và đồng bộ. */}
+          {/* Danh sách các dòng sản phẩm */}
           <ul className="space-y-0.5">
             {link.children.map((child) => {
               const childCategory = child.href.split("category=")[1];
-              // `childCategory` = undefined cho "Tất cả sản phẩm" (href không
-              // có tham số category) → mục đó được highlight khi đang ở
-              // trang sản phẩm mà KHÔNG lọc theo dòng nào.
-              const isAll = !childCategory;
-              const isCurrent = isAll
-                ? pathname === link.href && !activeCategory
-                : activeCategory === childCategory;
+              const isCurrent = activeCategory === childCategory;
               return (
                 <li key={child.href}>
                   <Link

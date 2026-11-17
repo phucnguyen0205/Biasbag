@@ -201,22 +201,20 @@ export const STYLE_LINES = [
 /**
  * Menu điều hướng chính ở header.
  *
- * "Sản phẩm" là menu cha (dropdown) gộp "Tất cả sản phẩm" + các dòng
- * sản phẩm. Danh sách dòng lấy từ `STYLE_LINES` để chỉ có một nguồn sự
- * thật — đổi tên/slug ở `STYLE_LINES` là header + footer + trang sản phẩm
- * cùng cập nhật.
+ * "Sản phẩm" là menu cha: click vào chữ "Sản phẩm" sẽ vào thẳng trang
+ * `/products`, phần chevron bên cạnh (hoặc hover chuột) mở dropdown liệt kê
+ * các dòng sản phẩm. Danh sách dòng lấy từ `STYLE_LINES` để chỉ có một
+ * nguồn sự thật — đổi tên/slug ở `STYLE_LINES` là header + footer + trang
+ * sản phẩm cùng cập nhật.
  */
 export const NAV_LINKS = [
   {
     href: "/products",
     label: "Sản phẩm",
-    children: [
-      { href: "/products", label: "Tất cả sản phẩm" },
-      ...STYLE_LINES.map((line) => ({
-        href: `/products?category=${line.slug}`,
-        label: line.name,
-      })),
-    ],
+    children: STYLE_LINES.map((line) => ({
+      href: `/products?category=${line.slug}`,
+      label: line.name,
+    })),
   },
   { href: "/blog", label: "Bài viết" },
   { href: "/about", label: "Về BIAS BAG" },

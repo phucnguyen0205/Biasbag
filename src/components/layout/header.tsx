@@ -255,26 +255,38 @@ export default function Header() {
  *
  * Trên màn hình nhỏ không có con trỏ để hover ⇒ dùng bấm để mở/đóng,
  * hiển thị dạng danh sách lồng nhau.
+ *
+ * Chữ "Sản phẩm" là LINK vào thẳng `/products`; chevron bên cạnh mở/đóng
+ * danh sách các dòng sản phẩm.
  */
 function MobileProductsMenu({ link }: { link: MobileMenuGroup }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
     <div>
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        aria-expanded={expanded}
-        className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm font-medium text-ink-700 hover:bg-ink-50"
-      >
-        {link.label}
-        <ChevronDown
-          className={cn(
-            "h-4 w-4 text-ink-400 transition-transform duration-200",
-            expanded && "rotate-180",
-          )}
-        />
-      </button>
+      <div className="flex items-center">
+        <Link
+          href={link.href}
+          onClick={() => setExpanded(false)}
+          className="flex-1 rounded-lg px-3 py-2.5 text-sm font-medium text-ink-700 hover:bg-ink-50"
+        >
+          {link.label}
+        </Link>
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          aria-label={`Xem các dòng ${link.label.toLowerCase()}`}
+          className="rounded-lg p-2 text-ink-600 hover:bg-ink-50"
+        >
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 text-ink-400 transition-transform duration-200",
+              expanded && "rotate-180",
+            )}
+          />
+        </button>
+      </div>
 
       {expanded && (
         <ul className="mb-1 ml-3 space-y-0.5 border-l border-ink-100 pl-3">
