@@ -219,7 +219,7 @@ export default function HeroCarousel({
       {/* Nội dung — canh giữa theo chiều dọc để banner gọn, không kéo dài trang.
           Padding trên chừa đủ chiều cao header (80px).
           `min-height` cố định ⇒ không CLS khi ảnh nền tải xong. */}
-      <div className="container-page relative flex min-h-[560px] flex-col justify-end pb-10 pt-28 sm:min-h-[620px] sm:pb-12 sm:pt-32">
+      <div className="container-page relative flex min-h-[700px] flex-col justify-end pb-10 pt-28 sm:min-h-[620px] sm:pb-12 sm:pt-32">
         {children}
 
         {/* Hàng điều khiển: dấu chấm bên trái, thumbnail bên phải */}
