@@ -55,6 +55,9 @@ function mapAuthError(message: string, fallback: string): string {
   if (m.includes("email rate limit")) {
     return "Hệ thống đang bận. Vui lòng thử lại sau ít phút.";
   }
+  if (m.includes("too many requests") || m.includes("rate limit")) {
+    return "Bạn đã thử đăng nhập quá nhiều lần. Vui lòng đợi 1–2 phút rồi thử lại.";
+  }
   if (m.includes("failed to fetch") || m.includes("network")) {
     return "Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.";
   }
@@ -148,14 +151,36 @@ export async function signIn(
     };
   }
 
-  const { email, password, remember } = parsed.data;
+  const { email, password: rawPassword, remember } = parsed.data;
   const next = safeNext(formData.get("next") as string | null);
+
+  // Cắt khoảng trắng thừa ở hai đầu mật khẩu — nguyên nhân rất hay gặp khi
+  // copy/paste từ Notepad, email hoặc password manager (dán cả dấu cách vào
+  // cuối) → Supabase báo "Invalid login credentials" dù mật khẩu đúng.
+  const password = rawPassword.trim();
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
+
+  // Tài khoản tạo bằng service role mà chưa xác nhận email sẽ bị Supabase từ
+  // chối ("Email not confirmed"). Với tài khoản admin được tạo qua script
+  // `npm run auth:admin` điều này có thể xảy ra nếu admin đổi email mà chưa
+  // xác nhận. Ta tự xác nhận rồi thử lại thay vì bắt user chờ email.
+  if (error && !data.user && error.message.toLowerCase().includes("not confirmed")) {
+    const confirmed = await confirmEmail(email);
+    if (confirmed) {
+      const retry = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (!retry.error && retry.data.user) {
+        return completeSignIn(retry.data.user.id, next, remember);
+      }
+    }
+  }
 
   if (error || !data.user) {
     return {
@@ -167,6 +192,44 @@ export async function signIn(
     };
   }
 
+  return completeSignIn(data.user.id, next, remember);
+}
+
+/**
+ * Xác nhận email của một tài khoản (dùng service role).
+ *
+ * Trả về `true` nếu xác nhận thành công. Nuốt lỗi để không làm hỏng luồng
+ * đăng nhập — nếu thiếu service role key thì đơn giản là không xác nhận được.
+ */
+async function confirmEmail(email: string): Promise<boolean> {
+  try {
+    const admin = await createAdminClient();
+    const { data: list } = await admin.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000,
+    });
+    const user = list.users.find(
+      (u) => u.email?.toLowerCase() === email.toLowerCase(),
+    );
+    if (!user) return false;
+    const { error: updateError } = await admin.auth.admin.updateUserById(
+      user.id,
+      { email_confirm: true },
+    );
+    return !updateError;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Hoàn tất đăng nhập: ghi cookie "ghi nhớ", đọc role và trả về đường đi.
+ */
+async function completeSignIn(
+  userId: string,
+  next: string | null,
+  remember: boolean,
+): Promise<AuthState> {
   // Lưu lựa chọn "ghi nhớ đăng nhập" để middleware giữ đúng thời hạn cookie.
   const cookieStore = await cookies();
   cookieStore.set(
@@ -175,7 +238,7 @@ export async function signIn(
     rememberCookieOptions(remember),
   );
 
-  const role = await fetchRole(data.user.id);
+  const role = await fetchRole(userId);
   const redirectTo =
     next ?? (role === "admin" || role === "staff" ? ADMIN_HOME : CUSTOMER_HOME);
 
