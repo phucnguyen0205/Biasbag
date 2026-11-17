@@ -64,9 +64,32 @@ function mapAuthError(message: string, fallback: string): string {
 /**
  * Đọc role của user từ bảng `profiles`.
  *
- * Dùng service role để đọc được ngay cả khi RLS chặn (fallback về `customer`).
+ * ⚠️ Vì sao KHÔNG dùng service role làm nguồn chính:
+ * `createAdminClient()` cần biến `SUPABASE_SERVICE_ROLE_KEY`. Trên môi
+ * trường deploy (Vercel) biến này có thể chưa được set (hoặc đặt sai tên),
+ * khiến `createAdminClient()` ném lỗi → `signIn` nuốt lỗi và mặc định role
+ * là `customer` ⇒ admin bị đẩy về `/account` và không vào được `/admin`.
+ *
+ * Cách sửa: đọc role bằng CHÍNH session của user (RLS policy
+ * `profiles_select_own` cho phép `id = auth.uid()`), chỉ fallback sang
+ * service role khi client theo session không đọc được.
  */
 async function fetchRole(userId: string): Promise<Role> {
+  // 1) Ưu tiên client theo session — luôn có sẵn, không cần service role.
+  try {
+    const session = await createClient();
+    const { data, error } = await session
+      .from("profiles")
+      .select("role")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (!error && data?.role) return data.role as Role;
+  } catch {
+    // Bỏ qua, thử cách 2.
+  }
+
+  // 2) Fallback: service role (bỏ qua RLS).
   try {
     const admin = await createAdminClient();
     const { data } = await admin

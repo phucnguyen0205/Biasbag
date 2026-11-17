@@ -125,7 +125,12 @@ export default function HeroCarousel({
     >
       {/* Lớp ảnh nền — chuyển mềm bằng opacity.
           Section bắt đầu ngay từ đỉnh trang (header fixed nổi đè lên),
-          nên ảnh phủ kín vùng header trong suốt. */}
+          nên ảnh phủ kín vùng header trong suốt.
+
+          Mỗi banner có thể có 2 ảnh:
+          - `image_url`        → ảnh ngang, dùng từ `md` trở lên.
+          - `image_url_mobile` → ảnh dọc, chỉ dùng trên màn hình hẹp (<`md`).
+          Nếu không có ảnh mobile thì dùng chung ảnh desktop (fallback). */}
       <div className="absolute inset-0">
         {banners.map((b, i) =>
           visibleIndexes.includes(i) ? (
@@ -137,6 +142,22 @@ export default function HeroCarousel({
               )}
               aria-hidden={i !== index}
             >
+              {/* Ảnh dọc cho mobile — chỉ hiện dưới `md`. */}
+              {b.image_url_mobile ? (
+                <Image
+                  src={b.image_url_mobile}
+                  alt={b.alt_text ?? ""}
+                  fill
+                  priority={i === 0}
+                  fetchPriority={i === 0 ? "high" : "auto"}
+                  placeholder={getBannerBlur(b.image_url_mobile) ?? "empty"}
+                  sizes="100vw"
+                  quality={72}
+                  className="object-cover md:hidden"
+                />
+              ) : null}
+
+              {/* Ảnh ngang — ẩn dưới `md` nếu đã có ảnh mobile riêng. */}
               <Image
                 src={b.image_url}
                 alt={b.alt_text ?? ""}
@@ -154,7 +175,10 @@ export default function HeroCarousel({
                 placeholder={getBannerBlur(b.image_url) ?? "empty"}
                 sizes="100vw"
                 quality={72}
-                className="object-cover"
+                className={cn(
+                  "object-cover",
+                  b.image_url_mobile && "hidden md:block",
+                )}
               />
             </div>
           ) : null,

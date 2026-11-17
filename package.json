@@ -11,10 +11,12 @@
     "seed:images": "tsx --env-file=.env.local scripts/seed-images.ts",
     "check:env": "tsx --env-file=.env.local scripts/check-env.ts",
     "auth:admin": "tsx --env-file=.env.local scripts/create-admin.ts",
+    "auth:delete": "tsx --env-file=.env.local scripts/delete-user.ts",
     "db:sync": "tsx scripts/sync-migration.ts",
     "db:push": "tsx scripts/db-push.ts",
     "logo:optimize": "tsx scripts/optimize-logo.ts",
-    "banner:optimize": "tsx scripts/optimize-banners.ts"
+    "banner:optimize": "tsx scripts/optimize-banners.ts",
+    "check:banner-columns": "tsx --env-file=.env.local scripts/check-banner-columns.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

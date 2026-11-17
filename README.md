@@ -387,6 +387,9 @@ lại). Chạy `npm run banner:optimize` để sinh lại.
 **Quản trị**
 
 - Thêm banner: chọn ảnh từ thư viện có sẵn, upload ảnh mới lên Storage, hoặc dán URL
+- **Ảnh riêng cho mobile**: mỗi banner có thể có ảnh dọc riêng
+  (`image_url_mobile`, khuyến nghị 1080×1350px). Màn hình `< md` dùng ảnh này,
+  từ `md` trở lên dùng ảnh ngang. Bỏ trống → dùng chung ảnh desktop
 - Sửa: bấm icon bút chì trên từng banner → form chuyển sang chế độ sửa
 - Bật/ẩn: icon con mắt (bánh xe đang quay = đang hiển thị)
 - Đổi thứ tự: mũi tên ↑ ↓ (thứ tự hiển thị trên trang chủ)
@@ -441,6 +444,73 @@ Toàn bộ link mạng xã hội nằm tại `SITE.social` trong `src/lib/consta
 1. Import repo vào Vercel
 2. Thêm các biến môi trường từ `.env.example`
 3. Deploy
+
+### ⚠️ Biến môi trường BẮT BUỘC khi deploy
+
+Thiếu biến này sẽ khiến **admin không đăng nhập được** (bị đẩy về `/account`)
+và **không đặt được hàng**. Vercel → Settings → Environment Variables:
+
+| Biến                             | Bắt buộc | Nếu thiếu                                            |
+| -------------------------------- | -------- | ---------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`       | ✅        | App không kết nối được DB                            |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | ✅   | Không đăng nhập được                                 |
+| `SUPABASE_SERVICE_ROLE_KEY`      | ✅        | Admin login sai role, đổi email/mật khẩu hỏng, **không đặt được hàng** |
+| `NEXT_PUBLIC_SITE_URL`           | ⬜        | OG image / sitemap / robots trỏ sai domain           |
+
+> `SUPABASE_SERVICE_ROLE_KEY` lấy ở Supabase → Project Settings → API →
+> **secret key** (`sb_secret_…`). Đặt cho cả **Production**, **Preview** và
+> **Development** — nếu chỉ set Production mà preview deploy thiếu key thì
+> bạn sẽ tưởng "deploy lên không đăng nhập được".
+
+Kiểm tra nhanh sau khi deploy:
+
+```bash
+npm run check:env
+```
+
+Trang `/admin/profile` cũng hiển thị cảnh báo nếu phát hiện thiếu
+`SUPABASE_SERVICE_ROLE_KEY`.
+
+### Kiểm tra migration đã áp dụng
+
+Sau khi đổi schema (thêm cột, bảng, function), chạy migration trước khi
+deploy code mới:
+
+```bash
+npm run db:push        # CLI (ghi lịch sử migration)
+# hoặc
+export SUPABASE_ACCESS_TOKEN=sbp_...
+npm run db:push -- --method api
+```
+
+Code đã được viết để **không sập** khi migration chưa chạy (dò cột rồi mới
+ghi — xem `src/lib/supabase/order-schema.ts` và `banner-schema.ts`), nhưng
+để có tính năng mới thì migration vẫn phải được apply.
+
+## Hồ sơ quản trị
+
+Trang `/admin/profile` cho phép admin:
+
+- Xem email hiện tại, vai trò
+- **Đổi email** (email được `email_confirm: true` ngay → không cần chờ link
+  xác nhận, nhưng phải đăng nhập lại bằng email mới)
+- **Đổi mật khẩu** (bắt buộc nhập mật khẩu hiện tại; tối thiểu 8 ký tự,
+  có chữ cái và chữ số)
+
+Cả hai thao tác dùng service role key nên **bắt buộc phải có**
+`SUPABASE_SERVICE_ROLE_KEY`.
+
+## Thanh toán
+
+Shop chỉ nhận **COD** (thanh toán khi nhận hàng).
+
+- `payment_method` luôn là `cod`; đơn mới tạo có `payment_status = 'unpaid'`
+- Mã đơn sinh bằng sequence Postgres `next_order_code()` → dạng
+  `BB-YYMMDD-000123`, duy nhất kể cả khi nhiều đơn tạo đồng thời
+- Tồn kho trừ **nguyên tử** qua RPC `decrement_product_stock` → không bao giờ
+  bán vượt tồn kho
+- Khách chưa đăng nhập vẫn đặt hàng được; sau khi đặt được cấp cookie
+  httpOnly (HMAC) để xem chi tiết đơn
 
 ## Ghi chú
 

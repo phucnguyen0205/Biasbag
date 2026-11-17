@@ -54,12 +54,22 @@ export async function createClient() {
 
 /** Server client that bypasses RLS (service role). Use only in trusted server code. */
 export async function createAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+
+  // Ném lỗi rõ ràng thay vì tạo client với key `undefined` → lỗi "fetch failed"
+  // khó hiểu khi deploy mà thiếu biến môi trường.
+  if (!url || !serviceKey) {
+    throw new Error(
+      "Thiếu SUPABASE_SERVICE_ROLE_KEY (hoặc NEXT_PUBLIC_SUPABASE_URL) — " +
+        "cần cấu hình biến môi trường này trên hosting.",
+    );
+  }
+
   const { createClient: createSupabaseClient } = await import("@supabase/supabase-js");
-  return createSupabaseClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } },
-  );
+  return createSupabaseClient<Database>(url, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
 }
 
 export { isSupabaseConfigured, getSupabasePublishableKey };

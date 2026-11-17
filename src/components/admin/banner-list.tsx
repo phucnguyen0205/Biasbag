@@ -10,6 +10,7 @@ import {
   EyeOff,
   Loader2,
   Pencil,
+  Smartphone,
   Trash2,
 } from "lucide-react";
 import { deleteBanner, reorderBanners, toggleBanner } from "@/app/admin/banner-actions";
@@ -60,20 +61,39 @@ export default function BannerList({
           )}
         >
           {/* Preview */}
-          <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden rounded-lg border border-ink-200 bg-ink-50 sm:w-40">
-            {b.image_url ? (
-              <Image
-                src={b.image_url}
-                alt={b.alt_text ?? ""}
-                fill
-                sizes="160px"
-                className="object-cover"
-                unoptimized
-              />
+          <div className="flex shrink-0 items-center gap-2">
+            <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden rounded-lg border border-ink-200 bg-ink-50 sm:w-40">
+              {b.image_url ? (
+                <Image
+                  src={b.image_url}
+                  alt={b.alt_text ?? ""}
+                  fill
+                  sizes="160px"
+                  className="object-cover"
+                  unoptimized
+                />
+              ) : null}
+              <span className="absolute left-1.5 top-1.5 rounded bg-ink-900/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                #{i + 1}
+              </span>
+            </div>
+
+            {b.image_url_mobile ? (
+              <div className="relative hidden aspect-[4/5] w-16 shrink-0 overflow-hidden rounded-lg border border-ink-200 bg-ink-50 sm:block">
+                <Image
+                  src={b.image_url_mobile}
+                  alt={b.alt_text ?? ""}
+                  fill
+                  sizes="64px"
+                  className="object-cover"
+                  unoptimized
+                />
+                <span className="absolute bottom-1 left-1 flex items-center gap-0.5 rounded bg-ink-900/70 px-1 py-0.5 text-[9px] font-medium text-white">
+                  <Smartphone className="h-2.5 w-2.5" />
+                  Mobile
+                </span>
+              </div>
             ) : null}
-            <span className="absolute left-1.5 top-1.5 rounded bg-ink-900/70 px-1.5 py-0.5 text-[10px] font-medium text-white">
-              #{i + 1}
-            </span>
           </div>
 
           {/* Thông tin */}
@@ -84,7 +104,7 @@ export default function BannerList({
             <p className="mt-0.5 truncate text-xs text-ink-500">
               {b.image_url}
             </p>
-            <p className="mt-1.5">
+            <p className="mt-1.5 flex flex-wrap items-center gap-1.5">
               <span
                 className={cn(
                   "badge",
@@ -95,6 +115,16 @@ export default function BannerList({
               >
                 {b.is_active ? "Đang hiển thị" : "Đang ẩn"}
               </span>
+              {b.image_url_mobile ? (
+                <span className="badge bg-blush-100 text-blush-700">
+                  <Smartphone className="mr-1 h-3 w-3" />
+                  Có ảnh mobile
+                </span>
+              ) : (
+                <span className="badge bg-ink-100 text-ink-500">
+                  Dùng ảnh desktop cho mobile
+                </span>
+              )}
             </p>
           </div>
 

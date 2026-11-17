@@ -9,6 +9,7 @@ import {
   Package,
   ShoppingBag,
   User,
+  UserCog,
   Users,
 } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
@@ -28,6 +29,7 @@ const LINKS = [
   { href: "/admin/orders", label: "Đơn hàng", icon: ShoppingBag },
   { href: "/admin/messages", label: "Tin nhắn", icon: Inbox },
   { href: "/admin/users", label: "Người dùng", icon: Users },
+  { href: "/admin/profile", label: "Hồ sơ", icon: UserCog },
 ];
 
 export default async function AdminLayout({
@@ -87,14 +89,20 @@ export default async function AdminLayout({
           </nav>
 
           {user && (
-            <div className="flex items-center gap-2 rounded-full border border-ink-200 bg-white py-1 pl-3 pr-1">
-              <User className="h-3.5 w-3.5 text-ink-400" />
-              <span className="max-w-[160px] truncate text-xs text-ink-600">
-                {user.email}
-              </span>
-              <span className="badge bg-blush-100 text-blush-700">
-                {user.role}
-              </span>
+            <>
+              <Link
+                href="/admin/profile"
+                className="flex items-center gap-2 rounded-full border border-ink-200 bg-white py-1 pl-3 pr-3 transition hover:border-blush-300 hover:bg-blush-50"
+                title="Cài đặt hồ sơ quản trị"
+              >
+                <User className="h-3.5 w-3.5 text-ink-400" />
+                <span className="max-w-[160px] truncate text-xs text-ink-600">
+                  {user.email}
+                </span>
+                <span className="badge bg-blush-100 text-blush-700">
+                  {user.role}
+                </span>
+              </Link>
               <form action={signOut}>
                 <button
                   type="submit"
@@ -105,7 +113,7 @@ export default async function AdminLayout({
                   <LogOut className="h-3.5 w-3.5" />
                 </button>
               </form>
-            </div>
+            </>
           )}
         </div>
       </div>

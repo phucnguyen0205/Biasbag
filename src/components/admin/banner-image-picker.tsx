@@ -15,12 +15,18 @@ export default function BannerImagePicker({
   defaultUrl = "",
   value,
   onChange,
+  aspect = "landscape",
+  hint,
 }: {
   name?: string;
   defaultUrl?: string;
   /** Giá trị điều khiển từ bên ngoài (dùng khi chọn từ thư viện ảnh). */
   value?: string;
   onChange?: (url: string) => void;
+  /** Tỉ lệ khung xem trước — `portrait` cho ảnh mobile. */
+  aspect?: "landscape" | "portrait";
+  /** Gợi ý về kích thước ảnh (hiển thị dưới nút upload). */
+  hint?: string;
 }) {
   const [preview, setPreview] = useState(defaultUrl);
   const [message, setMessage] = useState<{
@@ -58,7 +64,8 @@ export default function BannerImagePicker({
 
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("folder", "banners");
+    // Ảnh mobile lưu vào thư mục riêng để dễ quản lý trong Storage.
+    formData.append("folder", name === "imageUrlMobile" ? "banners/mobile" : "banners");
 
     startTransition(async () => {
       const result = await uploadImageAction(formData);
@@ -87,7 +94,12 @@ export default function BannerImagePicker({
   return (
     <div className="space-y-2">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-        <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden rounded-xl border border-ink-200 bg-ink-50 sm:w-48">
+        <div
+          className={cn(
+            "relative w-full shrink-0 overflow-hidden rounded-xl border border-ink-200 bg-ink-50 sm:w-48",
+            aspect === "portrait" ? "aspect-[4/5]" : "aspect-[16/9]",
+          )}
+        >
           {preview ? (
             <>
               <Image
@@ -136,7 +148,8 @@ export default function BannerImagePicker({
             ) : (
               <>
                 <Upload className="h-3.5 w-3.5" />
-                Nên dùng ảnh nền ngang, rõ nét, kích thước tối thiểu 1920px
+                {hint ??
+                  "Nên dùng ảnh nền ngang, rõ nét, kích thước tối thiểu 1920px"}
               </>
             )}
           </p>

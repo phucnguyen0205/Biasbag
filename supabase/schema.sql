@@ -126,6 +126,16 @@ create table if not exists public.banners (
   id uuid primary key default gen_random_uuid(),
   image_url text not null,
   alt_text text,
+  -- Ảnh riêng cho màn hình MOBILE (dọc, ví dụ 1080x1350).
+  --
+  -- VÌ SAO CẦN:
+  -- Ảnh banner desktop là ảnh ngang (1920px). Khi hiển thị trên màn hình dọc
+  -- 375px, ảnh ngang bị CẮT mất phần giữa → chủ thể chính (túi) có thể nằm
+  -- ngoài khung nhìn. Cho phép admin upload thêm 1 ảnh dọc riêng cho mobile
+  -- → hero luôn đúng bố cục trên cả 2 nền tảng.
+  --
+  -- NULL = dùng chung `image_url` (hành vi mặc định, không bắt buộc).
+  image_url_mobile text,
   sort_order integer not null default 0,
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
@@ -133,6 +143,10 @@ create table if not exists public.banners (
   -- Tối đa 5 banner đang hoạt động (ràng buộc ở tầng ứng dụng).
   constraint banners_image_not_blank check (length(trim(image_url)) > 0)
 );
+
+-- Thêm cột cho database đã tồn tại (idempotent).
+alter table public.banners
+  add column if not exists image_url_mobile text;
 
 create index if not exists banners_active_idx
   on public.banners(is_active, sort_order);

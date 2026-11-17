@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Smartphone } from "lucide-react";
 import {
   addBanner,
   updateBanner,
@@ -18,6 +18,11 @@ export default function BannerForm({ banner }: { banner?: Banner }) {
 
   // Giá trị ảnh do admin chọn (từ thư viện hoặc upload).
   const [imageUrl, setImageUrl] = useState(banner?.image_url ?? "");
+
+  // Ảnh riêng cho màn hình dọc (mobile). Rỗng = dùng chung ảnh desktop.
+  const [imageUrlMobile, setImageUrlMobile] = useState(
+    banner?.image_url_mobile ?? "",
+  );
 
   // Form thêm và form sửa dùng hai action khác nhau.
   const [addState, addAction, addPending] = useActionState(
@@ -48,13 +53,42 @@ export default function BannerForm({ banner }: { banner?: Banner }) {
 
       <div>
         <label className="label" htmlFor="banner-imageUrl">
-          Ảnh banner *
+          Ảnh banner (desktop) *
         </label>
         <BannerImagePicker
           name="imageUrl"
           defaultUrl={banner?.image_url ?? ""}
           value={imageUrl}
           onChange={setImageUrl}
+          hint="Ảnh nền ngang, kích thước tối thiểu 1920px rộng."
+        />
+      </div>
+
+      {/* ── Ảnh riêng cho mobile ────────────────────────────────────────
+          Ảnh ngang bị cắt trên màn hình dọc nên admin có thể upload thêm
+          1 ảnh dọc riêng. Bỏ trống = dùng chung ảnh desktop. */}
+      <div className="rounded-xl border border-dashed border-blush-300 bg-blush-50/40 p-4">
+        <div className="mb-3 flex items-start gap-2">
+          <Smartphone className="mt-0.5 h-4 w-4 shrink-0 text-blush-600" />
+          <div>
+            <p className="text-sm font-semibold text-ink-900">
+              Ảnh riêng cho giao diện mobile
+            </p>
+            <p className="mt-0.5 text-xs leading-relaxed text-ink-500">
+              Dùng trên màn hình dọc (điện thoại). Nên có tỉ lệ dọc, ví dụ
+              1080×1350px — chủ thể sẽ không bị cắt. Để trống thì mọi thiết bị
+              dùng chung ảnh desktop.
+            </p>
+          </div>
+        </div>
+
+        <BannerImagePicker
+          name="imageUrlMobile"
+          defaultUrl={banner?.image_url_mobile ?? ""}
+          value={imageUrlMobile}
+          onChange={setImageUrlMobile}
+          aspect="portrait"
+          hint="Ảnh dọc, ví dụ 1080×1350px."
         />
       </div>
 

@@ -19,6 +19,7 @@ export const FALLBACK_BANNERS: Banner[] = [
   {
     id: "fb-banner-1",
     image_url: "/banners/banner-1.webp",
+    image_url_mobile: null,
     alt_text: "Túi xách BIAS BAG — phụ kiện nhỏ, phong cách riêng",
     sort_order: 0,
     is_active: true,
@@ -28,6 +29,7 @@ export const FALLBACK_BANNERS: Banner[] = [
   {
     id: "fb-banner-2",
     image_url: "/banners/banner-2.webp",
+    image_url_mobile: null,
     alt_text: "Bộ sưu tập túi xách thời trang BIAS BAG",
     sort_order: 1,
     is_active: true,
@@ -37,6 +39,7 @@ export const FALLBACK_BANNERS: Banner[] = [
   {
     id: "fb-banner-3",
     image_url: "/banners/banner-3.webp",
+    image_url_mobile: null,
     alt_text: "Túi tote canvas cho học sinh, sinh viên",
     sort_order: 2,
     is_active: true,
@@ -46,6 +49,7 @@ export const FALLBACK_BANNERS: Banner[] = [
   {
     id: "fb-banner-4",
     image_url: "/banners/banner-4.webp",
+    image_url_mobile: null,
     alt_text: "Túi đeo vai và balo BIAS BAG cho giới trẻ",
     sort_order: 3,
     is_active: true,

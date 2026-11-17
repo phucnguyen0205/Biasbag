@@ -74,7 +74,11 @@ export async function submitOrder(
     customerPhone: formData.get("customerPhone"),
     shippingAddress: formData.get("shippingAddress"),
     note: formData.get("note") || undefined,
-    paymentMethod: formData.get("paymentMethod"),
+    // Mặc định COD khi form không gửi phương thức (form cũ đã cache, request
+    // cũ, hoặc JS chưa hydrate) — đơn vẫn phải đặt được.
+    paymentMethod:
+      String(formData.get("paymentMethod") ?? "") ||
+      DEFAULT_PAYMENT_METHOD,
     lines: rawLines,
   };
 
@@ -192,7 +196,21 @@ export async function submitOrder(
   // dữ liệu client gửi lên. Nếu dùng client thường (bị RLS giới hạn), guest
   // không thể ghi được `order_items` vào đơn của chính mình — RLS không phân
   // biệt được "đơn vừa tạo" với "đơn của người khác".
-  const admin = await createAdminClient();
+  //
+  // Nếu thiếu `SUPABASE_SERVICE_ROLE_KEY` (cấu hình sai trên hosting) →
+  // fallback sang client theo session. Khi đó chỉ khách ĐÃ ĐĂNG NHẬP mới
+  // ghi được `order_items` (policy `order_items_insert_own`); guest sẽ nhận
+  // thông báo lỗi rõ ràng thay vì lỗi 500 chung chung.
+  let admin: Awaited<ReturnType<typeof createAdminClient>>;
+  let usingServiceRole = true;
+  try {
+    admin = await createAdminClient();
+  } catch {
+    admin = (await createClient()) as unknown as Awaited<
+      ReturnType<typeof createAdminClient>
+    >;
+    usingServiceRole = false;
+  }
 
   // Dò cột mới của bảng `orders` (cache 1 lần cho toàn tiến trình).
   // Nếu migration chưa chạy → bỏ các cột đó khỏi payload để luồng thanh toán
@@ -236,6 +254,17 @@ export async function submitOrder(
     .single();
 
   if (error || !order) {
+    // `user_id` bị RLS chặn khi dùng client thường mà khách chưa đăng nhập →
+    // báo rõ thay vì lỗi kỹ thuật.
+    if (!usingServiceRole && !user) {
+      return {
+        status: "error",
+        message:
+          "Máy chủ đang thiếu cấu hình đặt hàng (SUPABASE_SERVICE_ROLE_KEY). " +
+          "Vui lòng đăng nhập để đặt hàng, hoặc liên hệ shop.",
+      };
+    }
+
     return {
       status: "error",
       message: error?.message ?? "Không thể tạo đơn hàng. Vui lòng thử lại.",
@@ -264,6 +293,19 @@ export async function submitOrder(
   if (itemsError) {
     // Đơn đã tạo nhưng không ghi được dòng hàng → xoá đơn để không lọt đơn rỗng.
     await admin.from("orders").delete().eq("id", order.id);
+
+    // Không có service role ⇒ guest không ghi được `order_items` (RLS chỉ
+    // cho user đã đăng nhập ghi vào đơn của chính mình). Báo rõ để khách
+    // biết cần đăng nhập thay vì thấy lỗi kỹ thuật.
+    if (!usingServiceRole) {
+      return {
+        status: "error",
+        message:
+          "Máy chủ đang thiếu cấu hình đặt hàng (SUPABASE_SERVICE_ROLE_KEY). " +
+          "Vui lòng đăng nhập để đặt hàng, hoặc liên hệ shop.",
+      };
+    }
+
     return {
       status: "error",
       message: itemsError.message,
@@ -280,9 +322,10 @@ export async function submitOrder(
   //   - hàm RPC kiểm tra `stock >= qty` TRONG cùng câu UPDATE → 2 đơn cùng
   //     lúc không thể bán vượt tồn kho (oversell).
   //
-  // Nếu DB chưa chạy migration (chưa có hàm RPC) → fallback sang cách
+  // Hàm RPC chỉ được GRANT cho `service_role` → chỉ dùng được khi đang dùng
+  // service role client. Nếu không có service role → fallback sang cách
   // `update` trực tiếp (kém an toàn hơn nhưng vẫn trừ đúng kho).
-  const hasStockRpc = availableColumns.has("subtotal");
+  const hasStockRpc = usingServiceRole;
   const stockResults: boolean[] = [];
 
   for (const l of lines) {

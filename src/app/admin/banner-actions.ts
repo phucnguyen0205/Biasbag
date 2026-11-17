@@ -4,6 +4,10 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { MAX_BANNERS, MIN_BANNERS } from "@/lib/data/banners";
+import {
+  detectBannerColumns,
+  stripMissingBannerColumns,
+} from "@/lib/supabase/banner-schema";
 import { PUBLIC_CACHE_TAG } from "@/lib/supabase/public";
 
 export type BannerState = {
@@ -21,6 +25,20 @@ const bannerSchema = z.object({
       "URL ảnh không hợp lệ",
     ),
   altText: z.string().trim().max(160).optional(),
+  /**
+   * Ảnh riêng cho MOBILE.
+   *
+   * Rỗng = không có ảnh mobile → hero dùng chung `imageUrl` (hành vi mặc
+   * định, tương thích ngược với các banner đã tạo trước đó).
+   */
+  imageUrlMobile: z
+    .string()
+    .trim()
+    .refine(
+      (v) => v === "" || /^https?:\/\//i.test(v) || v.startsWith("/"),
+      "URL ảnh mobile không hợp lệ",
+    )
+    .optional(),
 });
 
 /** Kiểm tra role admin — dùng chung pattern với actions.ts. */
@@ -60,6 +78,7 @@ export async function addBanner(
   const parsed = bannerSchema.safeParse({
     imageUrl: formData.get("imageUrl"),
     altText: String(formData.get("altText") ?? "") || undefined,
+    imageUrlMobile: String(formData.get("imageUrlMobile") ?? ""),
   });
 
   if (!parsed.success) {
@@ -99,13 +118,22 @@ export async function addBanner(
     .limit(1)
     .maybeSingle();
 
-  const { error } = await auth.supabase.from("banners").insert({
-    image_url: parsed.data.imageUrl,
-    alt_text: parsed.data.altText ?? null,
-    sort_order: (last?.sort_order ?? -1) + 1,
-    is_active: true,
-    updated_at: new Date().toISOString(),
-  });
+  // Chỉ ghi cột `image_url_mobile` nếu DB đã có (migration đã chạy).
+  const availableColumns = await detectBannerColumns(auth.supabase);
+
+  const { error } = await auth.supabase.from("banners").insert(
+    stripMissingBannerColumns(
+      {
+        image_url: parsed.data.imageUrl,
+        image_url_mobile: parsed.data.imageUrlMobile || null,
+        alt_text: parsed.data.altText ?? null,
+        sort_order: (last?.sort_order ?? -1) + 1,
+        is_active: true,
+        updated_at: new Date().toISOString(),
+      },
+      availableColumns,
+    ),
+  );
 
   if (error) return { status: "error", message: error.message };
 
@@ -127,6 +155,7 @@ export async function updateBanner(
   const parsed = bannerSchema.safeParse({
     imageUrl: formData.get("imageUrl"),
     altText: String(formData.get("altText") ?? "") || undefined,
+    imageUrlMobile: String(formData.get("imageUrlMobile") ?? ""),
   });
 
   if (!parsed.success) {
@@ -163,14 +192,22 @@ export async function updateBanner(
     }
   }
 
+  const availableColumns = await detectBannerColumns(auth.supabase);
+
   const { error } = await auth.supabase
     .from("banners")
-    .update({
-      image_url: parsed.data.imageUrl,
-      alt_text: parsed.data.altText ?? null,
-      is_active: isActive,
-      updated_at: new Date().toISOString(),
-    })
+    .update(
+      stripMissingBannerColumns(
+        {
+          image_url: parsed.data.imageUrl,
+          image_url_mobile: parsed.data.imageUrlMobile || null,
+          alt_text: parsed.data.altText ?? null,
+          is_active: isActive,
+          updated_at: new Date().toISOString(),
+        },
+        availableColumns,
+      ),
+    )
     .eq("id", id);
 
   if (error) return { status: "error", message: error.message };

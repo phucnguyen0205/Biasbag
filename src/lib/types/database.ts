@@ -169,6 +169,8 @@ export interface Database {
         Row: {
           id: string;
           image_url: string;
+          /** Ảnh riêng cho mobile — NULL = dùng chung `image_url`. */
+          image_url_mobile: string | null;
           alt_text: string | null;
           sort_order: number;
           is_active: boolean;
@@ -178,6 +180,7 @@ export interface Database {
         Insert: {
           id?: string;
           image_url: string;
+          image_url_mobile?: string | null;
           alt_text?: string | null;
           sort_order?: number;
           is_active?: boolean;

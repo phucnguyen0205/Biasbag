@@ -12,7 +12,6 @@ import {
   Loader2,
   Lock,
   Phone,
-  Sparkles,
   User,
 } from "lucide-react";
 import { signIn, signUp } from "@/app/login/actions";
@@ -94,12 +93,7 @@ export default function AuthForm({ next }: { next?: string }) {
         </div>
 
         <div className="relative mt-12 flex-1">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-blush-700">
-            <Sparkles className="h-3.5 w-3.5" />
-            Phụ kiện nhỏ, phong cách riêng
-          </span>
-
-          <h2 className="mt-5 font-display text-4xl font-semibold leading-tight text-ink-900">
+          <h2 className="font-display text-4xl font-semibold leading-tight text-ink-900">
             Túi in hình,
             <br />
             <span className="text-blush-600">style của riêng bạn.</span>
