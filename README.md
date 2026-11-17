@@ -617,8 +617,24 @@ Trong Search Console → **Sitemaps** → mục `Sitemap` → nhập:
 sitemap.xml
 ```
 
+> ⚠️ **Phải nhập `sitemap.xml`, KHÔNG nhập `https://biasbag.shop`.**
+> Nếu dán domain gốc, GSC fetch trang chủ → nhận `<!DOCTYPE html>` → báo lỗi
+> *"Sơ đồ trang web của bạn dường như là một trang HTML. Hãy sử dụng định
+> dạng sơ đồ trang web được hỗ trợ để thay thế."*
+>
+> URL đầy đủ `https://biasbag.shop/sitemap.xml` cũng được. Cả hai đều trả
+> `content-type: application/xml`.
+
 Google sẽ tự đọc `https://biasbag.shop/sitemap.xml`. Ngoài ra `robots.txt` đã
 trỏ sẵn tới sitemap nên Google cũng tự tìm thấy.
+
+**Vì sao sitemap luôn là XML hợp lệ (đã xử lý trong code):**
+
+| Rủi ro                                               | Cách xử lý trong dự án                                                                 |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Supabase lỗi/timeout → Next.js trả **trang lỗi HTML** | Mọi truy vấn DB trong `sitemap.ts` bọc `try/catch`; middleware **loại trừ** `/sitemap.xml`, `/robots.txt` khỏi matcher (không gọi Supabase Auth cho các file này) |
+| `lastmod` đổi mỗi lần fetch → Google crawl lại liên tục | Trang tĩnh dùng mốc thời gian **cố định**; sản phẩm/bài viết dùng `updated_at` thật từ DB |
+| Gọi DB mỗi request → chậm, có thể timeout           | `revalidate = 3600` → cache 1 giờ                                                     |
 
 ### Bước 4 — Yêu cầu lập chỉ mục (Request indexing)
 
@@ -636,10 +652,19 @@ Với các URL quan trọng (trang chủ, từng sản phẩm, từng bài viế
 npm run check:seo -- https://biasbag.shop
 ```
 
-Script kiểm tra: `robots.txt` (có khai báo sitemap, chặn trang riêng tư),
-`sitemap.xml` (URL đúng domain, không trùng lặp, không chứa trang riêng tư),
-thẻ `google-site-verification`, và canonical + JSON-LD + title + description
-trên các trang chính.
+Script kiểm tra:
+
+| Mục                                        | Kiểm tra gì                                                     |
+| ------------------------------------------ | ---------------------------------------------------------------- |
+| `robots.txt`                               | có khai báo `Sitemap:`, chặn trang riêng tư, là **text** không phải HTML |
+| `sitemap.xml`                              | `content-type` là XML, bắt đầu bằng `<?xml`, **không chứa thẻ HTML** |
+| `sitemap.xml`                              | URL đúng domain, không trùng lặp, không chứa trang riêng tư        |
+| Thẻ xác minh                               | có `<meta name="google-site-verification">`                        |
+| Các trang chính                            | canonical + JSON-LD + title + description                          |
+
+> Mục "không chứa thẻ HTML" chính là kiểm tra lỗi
+> *"Sơ đồ trang web của bạn dường như là một trang HTML"* mà Google Search
+> Console báo.
 
 ## Thanh toán
 
