@@ -504,6 +504,18 @@ Cả hai thao tác dùng service role key nên **bắt buộc phải có**
 
 ## Google Search Console (chỉ mục web)
 
+> ✅ **Đã xác minh thành công** cho `biasbag.shop` (property loại **Domain**,
+> xác minh bằng **DNS TXT**):
+>
+> ```
+> biasbag.shop.  TXT  "google-site-verification=cVydVxmAugx_Xte3fz7ph5h5ROgRAsZWu4vtHlOqX1E"
+> ```
+>
+> Ngoài ra thẻ HTML meta (`metadata.verification.google`) và file
+> `/google<token>.html` cũng đã được bật qua biến môi trường
+> `GOOGLE_SITE_VERIFICATION` → dùng làm **phương án dự phòng** nếu DNS bị
+> xoá hoặc đổi chủ sở hữu.
+
 Toàn bộ phần cấu hình đã có sẵn trong code — việc còn lại là **thêm property
 trên Google Search Console** và **dán mã xác minh** vào biến môi trường.
 
