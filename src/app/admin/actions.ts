@@ -26,6 +26,9 @@ function invalidatePublicData() {
   revalidateTag(PUBLIC_CACHE_TAG);
   revalidatePath("/");
   revalidatePath("/products");
+  // Trang "Về chúng tôi" cũng hiển thị sản phẩm thật từ DB ⇒ cần xoá cache
+  // cache route này luôn để ảnh/tên sản phẩm mới xuất hiện ngay.
+  revalidatePath("/about");
 }
 
 export type AdminState = {

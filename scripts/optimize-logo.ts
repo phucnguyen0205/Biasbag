@@ -86,6 +86,28 @@ async function main() {
   console.log(`✓ public/logo.png        ${TARGET}px  ${color.length}B`);
   console.log(`✓ public/logo-white.png  ${TARGET}px  ${white.length}B`);
   console.log(`✓ public/logo-og.png     ${OG_TARGET}px  ${og.length}B`);
+
+  // ── Bản WEBP cho header/footer ────────────────────────────────────────
+  // Logo hiển thị ở header chỉ ~104×65px (DPR 2 → 208px) ⇒ bản 256px PNG
+  // (45KB) là dư thừa. Bản WebP 256px chỉ ~22KB, bản 160px chỉ ~12KB.
+  const webp = (buf: Buffer, w: number) =>
+    sharp(buf)
+      .resize(w)
+      .webp({ quality: 88, effort: 6, alphaQuality: 100 })
+      .toBuffer();
+
+  const logoWebp = await webp(color, 256);
+  const logoWhiteWebp = await webp(white, 256);
+
+  await writeFile("public/logo.webp", logoWebp);
+  await writeFile("public/logo-white.webp", logoWhiteWebp);
+
+  console.log(
+    `✓ public/logo.webp        256px  ${(logoWebp.length / 1024).toFixed(1)}KB`,
+  );
+  console.log(
+    `✓ public/logo-white.webp  256px  ${(logoWhiteWebp.length / 1024).toFixed(1)}KB`,
+  );
   console.log(
     "\nDùng `unoptimized` trên <Image> cho logo để không bị optimizer nén lại.",
   );

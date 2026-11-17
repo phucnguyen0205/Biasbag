@@ -21,8 +21,15 @@ export const SITE = {
     facebook: "https://www.facebook.com/profile.php?id=61595001308839",
     shopee: "https://shopee.vn/shop/1770939006",
   },
-  logo: "/logo.png",
-  logoWhite: "/logo-white.png",
+  /**
+   * Logo (WebP — nhẹ hơn PNG ~50%: 45KB → 22KB).
+   *
+   * Logo hiển thị ở kích thước 104×65px nên ảnh gốc 256×161 là dư; WebP
+   * quality 88 vẫn sắc nét ở mọi kích thước hiển thị.
+   */
+  logo: "/logo.webp",
+  logoWhite: "/logo-white.webp",
+  /** Ảnh OG (share mạng xã hội) — giữ PNG vì nhiều nền tảng yêu cầu PNG/JPG. */
   logoOg: "/logo-og.png",
 } as const;
 

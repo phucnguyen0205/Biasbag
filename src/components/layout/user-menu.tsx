@@ -4,16 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LayoutDashboard, LogOut, Package, UserRound } from "lucide-react";
-import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import { signOut } from "@/app/login/actions";
 import { cn } from "@/lib/utils";
-import type { Role } from "@/lib/auth";
-
-type Profile = {
-  name: string | null;
-  email: string | null;
-  role: Role;
-} | null;
+import { useAuthUser } from "@/hooks/use-auth-user";
 
 /**
  * Nút tài khoản ở header.
@@ -26,48 +18,19 @@ type Profile = {
  */
 export default function UserMenu({ transparent }: { transparent: boolean }) {
   const router = useRouter();
-  const [user, setUser] = useState<Profile>(null);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!isSupabaseConfigured()) return;
-
-    const supabase = createClient();
-
-    async function load() {
-      const {
-        data: { user: authUser },
-      } = await supabase.auth.getUser();
-      if (!authUser) {
-        setUser(null);
-        return;
-      }
-
-      // Role lấy từ bảng `profiles` (RLS cho user đọc hồ sơ của chính mình).
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role, full_name")
-        .eq("id", authUser.id)
-        .maybeSingle();
-
-      setUser({
-        name: profile?.full_name ?? null,
-        email: authUser.email ?? null,
-        role: (profile?.role as Role | undefined) ?? "customer",
-      });
-    }
-
-    load();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      load();
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+  /**
+   * ⚠️ Dùng chung singleton `useAuthUser` — KHÔNG tạo Supabase client riêng.
+   *
+   * Trước đây menu tài khoản tự dynamic-import `@/lib/supabase/client` và
+   * tự đăng ký listener `onAuthStateChange` ⇒ 1 client + 1 listener THỪA
+   * (ngoài hook `useAuthUser` đã có) → main thread bận, TBT tăng.
+   *
+   * Giờ chỉ còn 1 client + 1 listener cho toàn trang.
+   */
+  const user = useAuthUser().user;
 
   // Đóng menu khi bấm ra ngoài.
   useEffect(() => {
@@ -183,6 +146,9 @@ export default function UserMenu({ transparent }: { transparent: boolean }) {
           <div className="border-t border-ink-100 p-1.5">
             <form
               action={async () => {
+                // Dynamic import: server action chỉ cần khi user bấm đăng xuất
+                // → không nên nằm trong bundle tải ngay.
+                const { signOut } = await import("@/app/login/actions");
                 await signOut();
                 setOpen(false);
                 router.refresh();

@@ -1,5 +1,53 @@
 @import "tailwindcss";
 
+/* ==================================================================
+   WEBFONT — variable font đã subset sẵn (nhanh hơn `next/font` ~86%)
+
+   `next/font` tải font theo `unicode-range` của Google Fonts → mỗi
+   subset là 1 file riêng, trang chủ phải tải 3 file woff2 (~131KB) chỉ
+   để vẽ chữ Latin + ít chữ Việt.
+
+   Ở đây dùng **variable font đã subset sẵn** theo đúng bộ ký tự website
+   dùng (Latin + đầy đủ dấu tiếng Việt):
+
+   • 1 file cho MỌI weight của 1 họ font (variable axis `wght`)
+     → thay vì 4–5 file riêng (400/500/600/700/800).
+   • Tổng **74KB cho 3 file** (thay vì ~764KB bản gốc / 124KB bản tĩnh).
+   • 3 request font thay vì 8 → ít round-trip hơn, render chữ sớm hơn.
+
+   Sinh lại bằng: `python3 scripts/optimize-fonts.py`
+
+   ⚠️ `font-display: swap` ⇒ trình duyệt vẽ bằng font hệ thống ngay,
+   đổi sang webfont khi tải xong → không bao giờ hiện chữ vô hình.
+   ================================================================== */
+
+/* ── Inter — font chính (body, đa số chữ) ─────────────────────────────── */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/inter-variable.woff2") format("woff2-variations");
+}
+
+/* ── Plus Jakarta Sans — font heading ──────────────────────────────────── */
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url("/fonts/plus-jakarta-sans-variable.woff2") format("woff2-variations");
+}
+
+/* ── Titan One — wordmark "Bias Bag" ───────────────────────────────────── */
+@font-face {
+  font-family: "Titan One";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/titan-one-variable.woff2") format("woff2");
+}
+
 @theme {
   /* ------------------------------------------------------------------
      HỒNG — nguồn sự thật duy nhất cho màu nhận diện của BIAS BAG.
@@ -44,11 +92,11 @@
      không tải được, fallback serif sẽ khiến heading hiện ra Times New
      Roman — thứ mà dự án không muốn có.
      ------------------------------------------------------------------ */
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-display: var(--font-jakarta), var(--font-inter), ui-sans-serif,
+  --font-display: "Plus Jakarta Sans", "Inter", ui-sans-serif,
     system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-script: var(--font-brand), var(--font-inter), ui-sans-serif, system-ui,
+  --font-script: "Titan One", "Inter", ui-sans-serif, system-ui,
     -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 

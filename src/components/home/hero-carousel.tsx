@@ -4,11 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getBannerBlur } from "@/lib/banners/placeholder";
-import {
-  PERF_DEGRADE_FLAGS,
-  useHeroImageDelay,
-} from "@/components/perf/perf-degrade";
+import HeroBackground from "@/components/home/hero-background";
 import type { Banner } from "@/lib/types";
 
 /** Thời gian mỗi lần chuyển banner (ms). */
@@ -57,8 +53,17 @@ export default function HeroCarousel({
 }) {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
-  // ⚠️ Kiểm thử hiệu năng: trì hoãn hiện ảnh nền hero → kéo LCP.
-  const heroReady = useHeroImageDelay();
+  /**
+   * Ảnh kế tiếp đã sẵn sàng để tải chưa.
+   *
+   * Ban đầu `false` → chỉ render ảnh LCP (banner đầu). Sau khi ảnh LCP
+   * `onLoad` (hoặc sau khi trang đã ổn định) mới render ảnh kế tiếp.
+   *
+   * Lý do: ảnh kế tiếp nằm trong viewport (overlay `absolute inset-0`) nên
+   * `loading="lazy"` KHÔNG ngăn trình duyệt tải nó ngay — nó sẽ tranh giành
+   * băng thông với ảnh LCP và làm LCP chậm hơn.
+   */
+  const [nextReady, setNextReady] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const count = banners.length;
@@ -82,10 +87,30 @@ export default function HeroCarousel({
    * Nếu render tất cả, trình duyệt sẽ tải đồng thời N ảnh nền 1920px dù
    * người dùng chỉ nhìn thấy 1 — lãng phí băng thông. Giữ ảnh kế tiếp sẵn sàng
    * giúp hiệu ứng chuyển tiếp không bị nhấp nháy (không phải tải lúc chuyển).
+   *
+   * ⚠️ Ảnh kế tiếp dùng `loading="lazy"` — nhưng vì nó nằm trong viewport
+   * (overlay `absolute inset-0`), trình duyệt vẫn tải ngay và tranh giành
+   * băng thông với ảnh LCP. Vì vậy ta CHỈ render ảnh kế tiếp sau khi ảnh
+   * LCP đã tải xong (xem `nextReady` bên dưới) — đảm bảo ảnh LCP về trước.
    */
   const visibleIndexes = isCarousel
-    ? Array.from(new Set([index, (index + 1) % count]))
+    ? Array.from(new Set([index, nextReady ? (index + 1) % count : index]))
     : [index];
+
+  /**
+   * Bật sẵn ảnh kế tiếp NGAY SAU khi ảnh LCP đã tải xong.
+   *
+   * - `onLoad` của ảnh LCP → ảnh đã hiển thị ⇒ có thể tải ảnh kế tiếp mà
+   *   không ảnh hưởng LCP nữa.
+   * - Fallback: sau 2.5s vẫn bật (phòng trường hợp ảnh LCP lỗi/không báo
+   *   `onLoad`) để carousel vẫn chuyển ảnh được.
+   */
+  useEffect(() => {
+    if (!isCarousel) return;
+
+    const timer = window.setTimeout(() => setNextReady(true), 2500);
+    return () => window.clearTimeout(timer);
+  }, [isCarousel]);
 
   // Tự động chuyển.
   useEffect(() => {
@@ -136,12 +161,9 @@ export default function HeroCarousel({
           Mỗi banner có thể có 2 ảnh:
           - `image_url`        → ảnh ngang, dùng từ `md` trở lên.
           - `image_url_mobile` → ảnh dọc, chỉ dùng trên màn hình hẹp (<`md`).
-          Nếu không có ảnh mobile thì dùng chung ảnh desktop (fallback).
-
-          ⚠️ `heroReady === false` chỉ xảy ra khi bật cờ kiểm thử hiệu năng
-          `lcp` → ảnh nền (phần tử LCP) bị giữ lại để kéo LCP xuống. */}
+          Nếu không có ảnh mobile thì dùng chung ảnh desktop (fallback). */}
       <div className="absolute inset-0">
-        {heroReady && banners.map((b, i) =>
+        {banners.map((b, i) =>
           visibleIndexes.includes(i) ? (
             <div
               key={b.id}
@@ -153,65 +175,20 @@ export default function HeroCarousel({
             >
               {/* Ảnh dọc cho mobile — chỉ hiện dưới `md`. */}
               {b.image_url_mobile ? (
-                <Image
-                  src={b.image_url_mobile}
-                  alt={b.alt_text ?? ""}
-                  fill
+                <HeroBackground
+                  banner={b}
                   priority={i === 0}
-                  fetchPriority={i === 0 ? "high" : "auto"}
-                  placeholder={getBannerBlur(b.image_url_mobile) ?? "empty"}
-                  sizes="100vw"
-                  quality={72}
-                  className="object-cover md:hidden"
+                  mobile
+                  onLoad={i === 0 ? () => setNextReady(true) : undefined}
                 />
               ) : null}
 
               {/* Ảnh ngang — ẩn dưới `md` nếu đã có ảnh mobile riêng. */}
-              {/*
-                ⚠️ Nhánh KIỂM THỬ HIỆU NĂNG (`PERF_DEGRADE_FLAGS.heavy`):
-                thay `<Image priority>` bằng `<img>` thuần trỏ tới ảnh nặng
-                (~2.4 MB), KHÔNG preload, KHÔNG `fetchpriority="high"` →
-                LCP tăng mạnh.
-
-                Cần chạy `npm run perf:heavy-image` để sinh ảnh.
-
-                Khi cờ tắt (mặc định) → dùng `<Image priority>` như cũ, giữ
-                nguyên điểm hiện tại.
-              */}
-              {PERF_DEGRADE_FLAGS.heavy ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src="/banners/perf-heavy.jpg"
-                  alt={b.alt_text ?? ""}
-                  className={cn(
-                    "absolute inset-0 h-full w-full object-cover",
-                    b.image_url_mobile && "hidden md:block",
-                  )}
-                />
-              ) : (
-                <Image
-                  src={b.image_url}
-                  alt={b.alt_text ?? ""}
-                  fill
-                  // Ảnh đầu tiên = phần tử LCP → preload + fetch ưu tiên cao.
-                  priority={i === 0}
-                  fetchPriority={i === 0 ? "high" : "auto"}
-                  // Truyền TRỰC TIẾP data-URL LQIP làm `placeholder` (không
-                  // phải `placeholder="blur"`): khi đó Next.js render
-                  // `background-image:url(data:...)` → hiển thị đúng tông màu
-                  // thật của banner trong lúc ảnh lớn đang tải.
-                  //
-                  // `placeholder="blur"` mặc định của Next.js chỉ vẽ một SVG
-                  // blur chung, không phải màu thật của ảnh.
-                  placeholder={getBannerBlur(b.image_url) ?? "empty"}
-                  sizes="100vw"
-                  quality={72}
-                  className={cn(
-                    "object-cover",
-                    b.image_url_mobile && "hidden md:block",
-                  )}
-                />
-              )}
+              <HeroBackground
+                banner={b}
+                priority={i === 0}
+                onLoad={i === 0 ? () => setNextReady(true) : undefined}
+              />
             </div>
           ) : null,
         )}
@@ -292,13 +269,22 @@ export default function HeroCarousel({
                       : "border-white/50 opacity-70 hover:opacity-100",
                   )}
                 >
+                  {/*
+                    ⚠️ KHÔNG dùng `unoptimized` ở đây.
+                    Bản gốc `banner-N-sm.webp` nặng ~45KB, trong khi thumbnail
+                    chỉ hiển thị 64×48px. Next.js optimizer nén lại còn ~2–4KB
+                    ⇒ tiết kiệm ~160KB băng thông (4 thumbnail) mà không mất
+                    chất lượng nhìn thấy.
+
+                    `sizes="64px"` để trình duyệt chọn đúng bản nhỏ nhất.
+                  */}
                   <Image
                     src={thumbnailSrc(b.image_url)}
                     alt=""
                     fill
                     sizes="64px"
+                    quality={55}
                     className="object-cover"
-                    unoptimized
                   />
                 </button>
               ))}

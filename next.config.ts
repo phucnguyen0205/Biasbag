@@ -170,6 +170,60 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+
+  /**
+   * Cache dài hạn cho file tĩnh trong `public/`.
+   *
+   * Mặc định của Vercel: `public/` được cache `public, max-age=0` → mỗi lượt
+   * truy cập vẫn phải hỏi CDN (dù CDN vẫn trả từ edge cache).
+   *
+   * Với file có tên hash/phiên bản (`.webp` banner responsive, logo) → đặt
+   * `max-age=31536000` (1 năm, immutable) ⇒ trình duyệt không hỏi lại server,
+   * lượt truy cập sau lấy ảnh từ cache cục bộ → TTFB và LCP giảm rõ rệt.
+   *
+   * ⚠️ Chỉ áp dụng cho file TĨNH không đổi tên. File đổi tên theo nội dung
+   * (`/_next/static/**`) đã có hash nên Next.js tự cache dài hạn.
+   */
+  async headers() {
+    return [
+      {
+        source: "/banners/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      {
+        source: "/logo.webp",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      {
+        source: "/logo-white.webp",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      {
+        source: "/fonts/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

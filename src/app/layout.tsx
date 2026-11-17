@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Plus_Jakarta_Sans, Titan_One } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
@@ -10,20 +9,36 @@ import { HeaderOffset } from "@/components/layout/header-offset";
 import Footer from "@/components/layout/footer";
 import { Toaster } from "@/components/ui/toaster";
 
-const inter = Inter({ subsets: ["vietnamese", "latin"], variable: "--font-inter" });
-// Display font: sans-serif hiện đại (bo tròn, mềm) — khớp tinh thần
-// "phụ kiện nhỏ, phong cách riêng" và tránh mọi fallback serif (Times New Roman).
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["vietnamese", "latin"],
-  variable: "--font-jakarta",
-});
-// Display font dạng chữ đậm/bo tròn, khớp với wordmark trong logo BIAS BAG
-// (Titan One chỉ có subset latin — dùng cho wordmark "Bias Bag")
-const titanOne = Titan_One({
-  subsets: ["latin"],
-  weight: "400",
-  variable: "--font-brand",
-});
+/**
+ * ⚠️ KHÔNG dùng `next/font` ở đây nữa.
+ *
+ * `next/font` tải font theo `unicode-range` của Google Fonts → mỗi subset là
+ * 1 file riêng; trang chủ phải tải 3 file woff2 (~131KB) chỉ để vẽ chữ
+ * Latin + ít chữ Việt.
+ *
+ * Thay vào đó: font đã được **subset sẵn** theo đúng bộ ký tự website dùng
+ * và khai báo `@font-face` trong `globals.css` → dùng **variable font**:
+ * 1 file cho MỌI weight, tổng 74KB cho 3 file (thay vì ~764KB gốc).
+ *
+ * Sinh lại bằng: `python3 scripts/optimize-fonts.py`
+ */
+
+/**
+ * Preload font chính (Inter variable) — chữ xuất hiện đầu tiên trên mọi trang.
+ *
+ * Chỉ preload 1 weight: preload thêm sẽ tranh giành băng thông với ảnh LCP
+ * mà không cần thiết.
+ *
+ * ⚠️ Variable font = 1 file phục vụ MỌI weight (400→700) ⇒ preload 1 file là
+ * đủ cho toàn bộ chữ trên trang.
+ */
+const FONT_PRELOADS = [
+  {
+    href: "/fonts/inter-variable.woff2",
+    type: "font/woff2",
+    crossOrigin: "anonymous",
+  },
+] as const;
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -38,7 +53,7 @@ export const metadata: Metadata = {
   generator: "Next.js",
   icons: {
     icon: [
-      { url: SITE.logo, type: "image/png", sizes: "256x161" },
+      { url: SITE.logo, type: "image/webp", sizes: "256x161" },
     ],
     apple: [{ url: SITE.logoOg, type: "image/png", sizes: "512x323" }],
   },
@@ -109,10 +124,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html
-      lang="vi"
-      className={`${inter.variable} ${jakarta.variable} ${titanOne.variable}`}
-    >
+    <html lang="vi">
+      <head>
+        {/* Preload font chính — chữ xuất hiện đầu tiên trên mọi trang. */}
+        {FONT_PRELOADS.map((f) => (
+          <link
+            key={f.href}
+            rel="preload"
+            href={f.href}
+            as="font"
+            type={f.type}
+            crossOrigin={f.crossOrigin}
+          />
+        ))}
+      </head>
       <body className="flex min-h-screen flex-col">
         <Header />
         <HeaderOffset />

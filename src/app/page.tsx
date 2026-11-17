@@ -19,11 +19,6 @@ import HeroCarousel from "@/components/home/hero-carousel";
 import { SITE, STYLE_LINES, CHANNELS } from "@/lib/constants";
 import { buildPageMetadata } from "@/lib/seo";
 import { finalPrice, formatPrice } from "@/lib/utils";
-import {
-  DelayedRender,
-  LateBanner,
-  SlowMainThread,
-} from "@/components/perf/perf-degrade";
 
 /**
  * ISR — trang chủ được cache lại mỗi 5 phút.
@@ -106,6 +101,26 @@ export default async function HomePage() {
 
   const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://biasbag.vn";
 
+  /**
+   * Preload ảnh LCP (ảnh hero đầu tiên).
+   *
+   * Chỉ áp dụng được cho ảnh banner NỘI BỘ (`/banners/banner-N.webp`) vì đó là
+   * ảnh đã có sẵn bộ responsive đứng yên (`banner-N-<w>.webp`). Ảnh admin
+   * upload lên Supabase Storage không có bản pre-resize → không preload được
+   * (vẫn được `fetchPriority="high"` trong `<img>`).
+   */
+  const lcpPreload = (() => {
+    const first = banners[0];
+    if (!first?.image_url?.startsWith("/banners/banner-")) return null;
+    const b = first.image_url.replace(/\.webp$/, "");
+    return {
+      href: `${b}-1080.webp`,
+      srcSet:
+        `${b}-640.webp 640w, ${b}-750.webp 750w, ${b}-1080.webp 1080w, ` +
+        `${b}-1200.webp 1200w, ${b}-1920.webp 1920w`,
+    };
+  })();
+
   // --- JSON-LD: Organization + WebSite ---
   const jsonLd = {
     "@context": "https://schema.org",
@@ -154,24 +169,38 @@ export default async function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      {/* ⚠️ KIỂM THỬ HIỆU NĂNG — kéo TBT (30% tổng điểm).
-          Khoá Main Thread ngay sau khi trang tải xong.
-          Chỉ hoạt động khi `NEXT_PUBLIC_PERF_DEGRADE` có chứa `tbt`. */}
-      <SlowMainThread />
+      {/* ⚡ PRELOAD ẢNH LCP — tối ưu LCP.
+          Ảnh hero là phần tử LCP của trang chủ. `<link rel="preload" as="image">`
+          với `imageSrcSet`/`imageSizes` bảo trình duyệt bắt đầu tải ảnh NGAY
+          khi phát hiện thẻ — trước cả khi CSS và JS tải xong.
 
-      {/* ⚠️ KIỂM THỬ HIỆU NĂNG — kéo CLS (25% tổng điểm).
-          Banner cao chèn muộn 1.2s mà không đặt sẵn chiều cao →
-          toàn bộ nội dung bên dưới bị đẩy xuống.
-          Đặt BÊN TRONG `DelayedRender` để không xung đột với cờ `delay`
-          (nếu đặt ngoài, banner sẽ bị placeholder che mất → CLS = 0). */}
-      <DelayedRender>
-        <LateBanner />
+          Không có preload, trình duyệt phải: tải HTML → tải CSS
+          (render-blocking) → phân tích DOM → mới tải ảnh. Với preload, bước
+          cuối rút ngắn còn gần như 0 ⇒ LCP giảm rõ.
+
+          Ảnh phục vụ dạng STATIC responsive (`banner-N-<w>.webp`) nên preload
+          cũng dùng `imageSrcSet` để trình duyệt chọn đúng bản theo màn hình
+          (tránh tải bản 1920px cho mobile).
+
+          ⚠️ Chỉ preload ẢNH ĐẦU TIÊN — preload nhiều ảnh sẽ tranh giành băng
+          thông với chính ảnh LCP và làm LCP chậm hơn. */}
+      {lcpPreload && (
+        <link
+          rel="preload"
+          as="image"
+          href={lcpPreload.href}
+          imageSrcSet={lcpPreload.srcSet}
+          imageSizes="100vw"
+          type="image/webp"
+          fetchPriority="high"
+        />
+      )}
 
       {/* ── Hero ───────────────────────────────────────────────────────────
           Banner nền dạng carousel. Lớp overlay giữ wordmark + tagline +
           mô tả + CTA.
-          Ảnh hero đầu tiên được preload (priority + fetchPriority=high) để
-          LCP vẽ ngay khi HTML tới trình duyệt. */}
+          Ảnh hero đầu tiên được preload (fetchPriority=high + <link rel=
+          "preload">) để LCP vẽ ngay khi HTML tới trình duyệt. */}
       <HeroCarousel banners={banners}>
         <div className="max-w-2xl">
           <h1 className="font-script text-5xl font-normal leading-none tracking-wide text-white drop-shadow-[0_3px_14px_rgba(0,0,0,0.75)] sm:text-7xl">
@@ -233,8 +262,11 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ── Dòng sản phẩm ──────────────────────────────────────────────── */}
-      <section className="container-page py-20 sm:py-24">
+      {/* ── Dòng sản phẩm ────────────────────────────────────────────────
+          `content-visibility: auto` cho phép trình duyệt BỎ QUA việc dựng
+          layout/paint cho section nằm ngoài viewport → giảm đáng kể thời gian
+          render ban đầu (Render Delay của LCP) mà không ảnh hưởng nội dung. */}
+      <section className="container-page py-20 sm:py-24 [content-visibility:auto] [contain-intrinsic-size:auto_800px]">
         <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="max-w-2xl">
             <p className="eyebrow">Dòng sản phẩm</p>
@@ -381,7 +413,7 @@ export default async function HomePage() {
       )}
 
       {/* ── Cách mua ────────────────────────────────────────────────────── */}
-      <section className="container-page py-20 sm:py-24">
+      <section className="container-page py-20 sm:py-24 [content-visibility:auto] [contain-intrinsic-size:auto_600px]">
         <div className="mb-12 max-w-2xl">
           <p className="eyebrow">Trải nghiệm mua sắm</p>
           <h2 className="section-title mt-3">Mua sắm dễ dàng</h2>
@@ -427,7 +459,7 @@ export default async function HomePage() {
       </section>
 
       {/* ── Kênh bán hàng ──────────────────────────────────────────────── */}
-      <section className="border-t border-ink-100 bg-blush-50/60 py-20 sm:py-24">
+      <section className="border-t border-ink-100 bg-blush-50/60 py-20 sm:py-24 [content-visibility:auto] [contain-intrinsic-size:auto_700px]">
         <div className="container-page">
           <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
             <div>
@@ -495,7 +527,7 @@ export default async function HomePage() {
       </section>
 
       {/* ── CTA ────────────────────────────────────────────────────────── */}
-      <section className="container-page py-20 sm:py-24">
+      <section className="container-page py-20 sm:py-24 [content-visibility:auto] [contain-intrinsic-size:auto_400px]">
         <div className="flex flex-col items-start gap-6 rounded-3xl border border-blush-200 bg-gradient-to-br from-blush-50 via-white to-blush-100 p-10 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="section-title">Cần tư vấn chọn túi?</h2>
@@ -512,7 +544,6 @@ export default async function HomePage() {
           </a>
         </div>
       </section>
-      </DelayedRender>
     </>
   );
 }

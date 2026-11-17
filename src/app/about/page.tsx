@@ -12,33 +12,19 @@ import {
 import { CORE_VALUES, SITE, STYLE_LINES } from "@/lib/constants";
 import { buildPageMetadata, SITE_URL } from "@/lib/seo";
 import { JsonLd, breadcrumbJsonLd } from "@/components/seo/json-ld";
+import { getCategoryShowcase, getFeaturedProducts } from "@/lib/data/products";
+import { finalPrice, formatPrice } from "@/lib/utils";
 
 export const metadata: Metadata = buildPageMetadata("about");
 
 /**
- * Ảnh minh hoạ cho từng khối nội dung.
+ * ISR — trang giới thiệu được cache lại mỗi 5 phút.
  *
- * Mỗi ảnh đều có `sizes` khai báo đúng tỉ lệ hiển thị ⇒ trình duyệt tải
- * đúng bản cần thiết, không tải ảnh 1920px cho ô 400px (giữ nhẹ trang).
+ * Trang này giờ lấy sản phẩm THẬT từ DB nên cần cache để không phải
+ * query mỗi lượt truy cập. Admin sửa sản phẩm → Server Action gọi
+ * `revalidatePath("/about")` để xoá cache ngay.
  */
-const GALLERY = [
-  {
-    img: "https://images.unsplash.com/photo-1523293182086-7651a899d37f?w=700",
-    label: "Túi Tote K-Pop",
-  },
-  {
-    img: "https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=700",
-    label: "Túi Tote Logo",
-  },
-  {
-    img: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=700",
-    label: "Túi Tote Địa Điểm",
-  },
-  {
-    img: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=700",
-    label: "Túi Tote Tối Giản",
-  },
-] as const;
+export const revalidate = 300;
 
 const CHANNELS = [
   {
@@ -58,7 +44,25 @@ const CHANNELS = [
   },
 ] as const;
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  /**
+   * Sản phẩm THẬT từ DB.
+   *
+   * - `showcase`: map slug danh mục → danh sách sản phẩm (cho grid "Năm chủ
+   *   đề in"), giống trang chủ ⇒ hai trang luôn hiển thị cùng dữ liệu.
+   * - `featured`: sản phẩm nổi bật (cho lưới ảnh minh hoạ bên cạnh phần
+   *   "Lĩnh vực hoạt động").
+   *
+   * Hai nguồn fetch SONG SONG (`Promise.all`) ⇒ không tạo waterfall.
+   */
+  const [showcase, featured] = await Promise.all([
+    getCategoryShowcase(3),
+    getFeaturedProducts(4),
+  ]);
+
+  /** Ảnh minh hoạ lấy từ sản phẩm thật (fallback về ảnh trang trí). */
+  const gallery = (featured.length ? featured : []).slice(0, 4);
+
   // JSON-LD: AboutPage + Organization + BreadcrumbList
   const jsonLd = {
     "@context": "https://schema.org",
@@ -107,15 +111,35 @@ export default function AboutPage() {
           "giọng" thương hiệu, không bị đột ngột về kiểu trang tĩnh. */}
       <section className="relative overflow-hidden bg-ink-900 text-white">
         <div className="absolute inset-0 opacity-30">
-          {/* Ảnh nền trang trí nằm dưới overlay tối 30% → không bao giờ là LCP.
-              Không đặt `priority` để không tranh băng thông với logo & heading. */}
-          <Image
-            src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1600"
-            alt=""
-            fill
-            sizes="100vw"
-            className="object-cover"
-          />
+          {/*
+            Ảnh nền trang trí.
+
+            ⚠️ Trước đây dùng ảnh Unsplash qua `next/image` → phải tải từ
+            host khác (round-trip thêm, load delay ~1.5s) và ảnh trở thành
+            phần tử LCP của trang.
+
+            Nay dùng ảnh banner NỘI BỘ đã nén sẵn (`/banners/banner-2-*.webp`)
+            → phục vụ thẳng từ CDN cùng origin, có sẵn bộ responsive ⇒
+            tải nhanh và nhẹ hơn nhiều.
+
+            `fetchPriority="high"` + `decoding="sync"` ⇒ vẽ ngay khi có dữ
+            liệu, không bị trì hoãn rasterize ngoài main thread.
+          */}
+          <picture>
+            <source
+              type="image/webp"
+              srcSet="/banners/banner-2-640.webp 640w, /banners/banner-2-750.webp 750w, /banners/banner-2-1080.webp 1080w, /banners/banner-2-1200.webp 1200w, /banners/banner-2-1920.webp 1920w"
+              sizes="100vw"
+            />
+            <img
+              src="/banners/banner-2-1080.webp"
+              alt=""
+              fetchPriority="high"
+              loading="eager"
+              decoding="sync"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          </picture>
         </div>
         <div className="absolute inset-0 bg-gradient-to-r from-ink-900 via-ink-900/85 to-ink-900/40" />
         <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-ink-900/75 to-transparent" />
@@ -202,25 +226,27 @@ export default function AboutPage() {
             </div>
           </div>
 
-          {/* Lưới ảnh — mỗi ảnh xuất hiện riêng khi cuộn tới */}
+          {/* GỌI ẢNH THẬT từ DB — 4 sản phẩm nổi bật, mỗi ảnh xuất hiện
+              riêng khi cuộn tới. Không dùng ảnh Unsplash cố định nữa. */}
           <div className="grid grid-cols-2 gap-4">
-            {GALLERY.map((c, i) => (
-              <div
-                key={c.label}
+            {gallery.map((p, i) => (
+              <Link
+                key={p.id}
+                href={`/products/${p.slug}`}
                 className="reveal-scale group relative aspect-square overflow-hidden rounded-2xl bg-blush-50"
                 style={{ animationRange: `entry 0% entry ${35 + i * 8}%` }}
               >
                 <Image
-                  src={c.img}
-                  alt={c.label}
+                  src={p.image_url ?? ""}
+                  alt={p.name}
                   fill
                   sizes="(max-width: 1024px) 50vw, 25vw"
                   className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                 />
                 <span className="absolute bottom-3 left-3 badge bg-white/90 text-ink-900 backdrop-blur">
-                  {c.label}
+                  {p.category?.name ?? p.name}
                 </span>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
@@ -240,42 +266,78 @@ export default function AboutPage() {
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            {STYLE_LINES.map((line, i) => (
-              <Link
-                key={line.slug}
-                href={`/products?category=${line.slug}`}
-                className="reveal group flex flex-col overflow-hidden rounded-2xl border border-ink-100 bg-white transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-1 hover:border-blush-200 hover:shadow-[0_18px_40px_-24px_rgba(143,74,57,0.45)]"
-                style={{ animationRange: `entry 0% entry ${30 + i * 6}%` }}
-              >
-                <div className="relative aspect-[4/5] overflow-hidden bg-blush-50">
-                  <Image
-                    src={GALLERY[i % GALLERY.length].img}
-                    alt={line.name}
-                    fill
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
-                    className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                  />
-                  <span className="absolute left-3 top-3 badge bg-white/90 text-ink-800 backdrop-blur">
-                    0{i + 1}
-                  </span>
-                </div>
-                <div className="flex flex-1 flex-col p-5">
-                  <h3 className="font-display text-lg font-semibold text-ink-900">
-                    {line.name}
-                  </h3>
-                  <p className="mt-1.5 text-xs font-medium uppercase tracking-wide text-blush-600">
-                    {line.tagline}
-                  </p>
-                  <p className="mt-3 text-sm leading-relaxed text-ink-600">
-                    {line.desc}
-                  </p>
-                  <span className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-ink-900">
-                    Xem sản phẩm
-                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
-                  </span>
-                </div>
-              </Link>
-            ))}
+            {STYLE_LINES.map((line, i) => {
+              // Sản phẩm THẬT của chủ đề này (từ DB) — thay cho ảnh mockup.
+              const items = showcase[line.slug] ?? [];
+              const lead = items[0];
+              return (
+                <Link
+                  key={line.slug}
+                  href={`/products?category=${line.slug}`}
+                  className="reveal group flex flex-col overflow-hidden rounded-2xl border border-ink-100 bg-white transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-1 hover:border-blush-200 hover:shadow-[0_18px_40px_-24px_rgba(143,74,57,0.45)]"
+                  style={{ animationRange: `entry 0% entry ${30 + i * 6}%` }}
+                >
+                  <div className="relative aspect-[4/5] overflow-hidden bg-blush-50">
+                    {lead?.image_url ? (
+                      <Image
+                        src={lead.image_url}
+                        alt={lead.name}
+                        fill
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
+                        className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center px-4 text-center text-sm text-ink-400">
+                        {line.name}
+                      </div>
+                    )}
+                    <span className="absolute left-3 top-3 badge bg-white/90 text-ink-800 backdrop-blur">
+                      0{i + 1}
+                    </span>
+                    {items.length > 1 && (
+                      <span className="absolute right-3 top-3 badge bg-ink-900/80 text-white backdrop-blur">
+                        {items.length} mẫu
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-1 flex-col p-5">
+                    <h3 className="font-display text-lg font-semibold text-ink-900">
+                      {line.name}
+                    </h3>
+                    <p className="mt-1.5 text-xs font-medium uppercase tracking-wide text-blush-600">
+                      {line.tagline}
+                    </p>
+
+                    {/* Danh sách sản phẩm thật trong chủ đề: tên + giá. */}
+                    {items.length > 0 ? (
+                      <ul className="mt-3 space-y-2 border-t border-ink-100 pt-3">
+                        {items.map((p) => (
+                          <li
+                            key={p.id}
+                            className="flex items-start gap-2 text-xs text-ink-600"
+                          >
+                            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blush-400" />
+                            <span className="line-clamp-1 flex-1">{p.name}</span>
+                            <span className="shrink-0 font-medium text-ink-900">
+                              {formatPrice(finalPrice(p.price, p.sale_price))}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-3 text-sm leading-relaxed text-ink-600">
+                        {line.desc}
+                      </p>
+                    )}
+
+                    <span className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-ink-900">
+                      Xem sản phẩm
+                      <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </section>
