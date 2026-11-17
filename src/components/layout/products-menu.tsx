@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
-import { ChevronDown, LayoutGrid } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type MenuLink = { href: string; label: string };
@@ -121,25 +121,19 @@ export default function ProductsMenu({
         )}
       >
         <div className="overflow-hidden rounded-2xl border border-ink-100 bg-white p-2 shadow-[0_24px_60px_-20px_rgba(15,23,42,0.28)]">
-          {/* Ô "Tất cả sản phẩm" — nổi bật nhất trong menu */}
-          <Link
-            href={link.children[0].href}
-            className="flex items-center gap-3 rounded-xl bg-blush-50 px-3.5 py-3 transition-colors hover:bg-blush-100"
-          >
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-blush-600 shadow-sm">
-              <LayoutGrid className="h-4.5 w-4.5" />
-            </span>
-            <span className="text-sm font-semibold text-blush-800">
-              {link.children[0].label}
-            </span>
-          </Link>
-
-          <div className="my-1.5 h-px bg-ink-100" />
-
+          {/* Danh sách danh mục.
+              "Tất cả sản phẩm" là mục ĐẦU TIÊN trong cùng một danh sách với
+              các dòng sản phẩm (không tách ô riêng) → nhìn gọn và đồng bộ. */}
           <ul className="space-y-0.5">
-            {link.children.slice(1).map((child) => {
+            {link.children.map((child) => {
               const childCategory = child.href.split("category=")[1];
-              const isCurrent = activeCategory === childCategory;
+              // `childCategory` = undefined cho "Tất cả sản phẩm" (href không
+              // có tham số category) → mục đó được highlight khi đang ở
+              // trang sản phẩm mà KHÔNG lọc theo dòng nào.
+              const isAll = !childCategory;
+              const isCurrent = isAll
+                ? pathname === link.href && !activeCategory
+                : activeCategory === childCategory;
               return (
                 <li key={child.href}>
                   <Link
