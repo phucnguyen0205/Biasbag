@@ -142,6 +142,18 @@ export async function submitOrder(
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Bắt buộc đăng nhập để đặt hàng.
+  //
+  // Mọi đơn hàng đều phải gắn với `orders.user_id` để khách xem lại được
+  // lịch sử đơn. Server action này là điểm chặn cuối cùng (defence in
+  // depth) — client đã chặn ở nút "Thêm vào giỏ" và ở trang `/checkout`.
+  if (!user) {
+    return {
+      status: "error",
+      message: "Vui lòng đăng nhập để đặt hàng.",
+    };
+  }
+
   // Client ghi DB.
   //
   // Ưu tiên service role (bypass RLS). Nếu thiếu `SUPABASE_SERVICE_ROLE_KEY`
