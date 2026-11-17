@@ -16,8 +16,16 @@ import { SITE } from "@/lib/constants";
  * Twitter card, robots) từ cấu hình — tránh mỗi trang tự viết lại.
  */
 
-/** URL gốc của website (dùng cho canonical + Open Graph). */
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://biasbag.vn";
+/**
+ * URL gốc của website (dùng cho canonical + Open Graph).
+ *
+ * Ưu tiên `NEXT_PUBLIC_SITE_URL`. Fallback là domain production thật —
+ * nếu để nhầm domain khác thì canonical/sitemap/JSON-LD sẽ trỏ sai và
+ * Google sẽ lập chỉ mục trùng lặp.
+ */
+export const SITE_URL = (
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://biasbag.shop"
+).replace(/\/+$/, "");
 
 /** Cấu hình SEO từng trang. */
 export const PAGE_SEO = {

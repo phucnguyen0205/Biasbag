@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import { SITE } from "@/lib/constants";
 import ContactForm from "@/components/contact/contact-form";
-import { buildPageMetadata } from "@/lib/seo";
+import { buildPageMetadata, SITE_URL } from "@/lib/seo";
+import { JsonLd, breadcrumbJsonLd } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = buildPageMetadata("contact");
 
@@ -47,8 +48,51 @@ const CHANNELS = [
 ] as const;
 
 export default function ContactPage() {
+  // JSON-LD: ContactPage + Organization (địa chỉ/điện thoại → hiển thị local pack)
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "ContactPage",
+        "@id": `${SITE_URL}/contact#webpage`,
+        url: `${SITE_URL}/contact`,
+        name: "Thông tin liên hệ BIAS BAG",
+        description:
+          "Liên hệ BIAS BAG để được tư vấn mẫu túi vải canvas, báo giá in hình theo yêu cầu và hỗ trợ đơn hàng nhanh chóng.",
+        isPartOf: { "@id": `${SITE_URL}/#website` },
+        about: { "@id": `${SITE_URL}/#organization` },
+      },
+      {
+        "@type": "Organization",
+        "@id": `${SITE_URL}/#organization`,
+        name: SITE.name,
+        url: SITE_URL,
+        logo: `${SITE_URL}${SITE.logoOg}`,
+        email: SITE.email,
+        telephone: SITE.phone,
+        address: {
+          "@type": "PostalAddress",
+          streetAddress: SITE.address,
+          addressCountry: "VN",
+        },
+        contactPoint: {
+          "@type": "ContactPoint",
+          telephone: SITE.phone,
+          contactType: "customer service",
+          areaServed: "VN",
+          availableLanguage: ["Vietnamese"],
+        },
+      },
+      breadcrumbJsonLd([
+        { name: "Trang chủ", url: SITE_URL },
+        { name: "Liên hệ", url: `${SITE_URL}/contact` },
+      ]),
+    ],
+  };
+
   return (
     <div className="container-page py-12">
+      <JsonLd data={jsonLd} />
       <Link
         href="/"
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink-500 transition hover:text-ink-900"

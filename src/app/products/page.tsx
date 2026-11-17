@@ -2,19 +2,61 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getCategories, getProducts } from "@/lib/data/products";
-import { SORT_OPTIONS } from "@/lib/constants";
+import { SORT_OPTIONS, SITE } from "@/lib/constants";
 import ProductCard from "@/components/product/product-card";
 import ProductFilters from "@/components/product/product-filters";
 import { cn } from "@/lib/utils";
 import type { SortOption } from "@/lib/types";
-import { buildPageMetadata } from "@/lib/seo";
-
-export const metadata: Metadata = buildPageMetadata("products");
+import { buildPageMetadata, SITE_URL } from "@/lib/seo";
+import { JsonLd, breadcrumbJsonLd } from "@/components/seo/json-ld";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 function toArray(v: string | string[] | undefined) {
   return Array.isArray(v) ? v[0] : v;
+}
+
+/**
+ * Canonical động cho trang danh mục.
+ *
+ * Mặc định `/products` (trang tất cả sản phẩm) là canonical gốc. Khi khách
+ * chọn đúng MỘT danh mục (không kèm tìm kiếm/sắp xếp/lọc giá), URL
+ * `/products?category=slug` trở thành landing page riêng → canonical trỏ về
+ * chính nó để Google lập chỉ mục độc lập, tránh bị coi là trùng lặp với
+ * `/products`.
+ */
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}): Promise<Metadata> {
+  const sp = await searchParams;
+  const category = toArray(sp.category);
+  const q = toArray(sp.q);
+  const sort = toArray(sp.sort);
+  const minPrice = toArray(sp.minPrice);
+  const maxPrice = toArray(sp.maxPrice);
+  const inStock = toArray(sp.inStock);
+  const page = toArray(sp.page);
+
+  const onlyCategory =
+    category &&
+    !q &&
+    (!sort || sort === "newest") &&
+    !minPrice &&
+    !maxPrice &&
+    !inStock &&
+    (!page || page === "1");
+
+  if (!onlyCategory) {
+    return buildPageMetadata("products");
+  }
+
+  const base = buildPageMetadata("products");
+  return {
+    ...base,
+    alternates: { canonical: `${SITE_URL}/products?category=${category}` },
+  };
 }
 
 export default async function ProductsPage({
@@ -54,8 +96,36 @@ export default async function ProductsPage({
 
   const activeCategory = categories.find((c) => c.slug === category);
 
+  // JSON-LD: CollectionPage (listing sản phẩm) + BreadcrumbList
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "CollectionPage",
+        "@id": `${SITE_URL}/products#webpage`,
+        url: `${SITE_URL}/products`,
+        name: activeCategory
+          ? `Sản phẩm ${activeCategory.name} — BIAS BAG`
+          : "Cửa Hàng BIAS BAG - Túi Tote Canvas Đẹp, Giá Tốt",
+        description: activeCategory?.description ?? SITE.seoDescription,
+        isPartOf: { "@id": `${SITE_URL}/#website` },
+        inLanguage: "vi-VN",
+      },
+      breadcrumbJsonLd([
+        { name: "Trang chủ", url: SITE_URL },
+        {
+          name: activeCategory ? activeCategory.name : "Sản phẩm",
+          url: activeCategory
+            ? `${SITE_URL}/products?category=${activeCategory.slug}`
+            : `${SITE_URL}/products`,
+        },
+      ]),
+    ],
+  };
+
   return (
     <div className="container-page py-10">
+      <JsonLd data={jsonLd} />
       {/* Breadcrumb */}
       <nav className="mb-6 flex items-center gap-2 text-sm text-ink-500">
         <Link href="/" className="hover:text-blush-700">

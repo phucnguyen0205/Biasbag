@@ -91,6 +91,26 @@ const nextConfig: NextConfig = {
    * Tắt `x-powered-by` (không ảnh hưởng perf nhưng sạch header).
    */
   poweredByHeader: false,
+
+  /**
+   * Phục vụ file xác minh Google Search Console.
+   *
+   * Google yêu cầu file `google<token>.html` ở thư mục gốc, nội dung:
+   *   `google-site-verification: <token>`
+   *
+   * Thay vì copy file vào `public/` mỗi lần đổi token, mọi URL có dạng
+   * `/google*.html` được rewrite về route xử lý đọc token từ env
+   * (`GOOGLE_SITE_VERIFICATION`) → chỉ cần set biến môi trường là xác minh
+   * được, không cần build lại.
+   */
+  async rewrites() {
+    return [
+      {
+        source: "/:file(google[a-zA-Z0-9_-]*\\.html)",
+        destination: "/api/google-verification",
+      },
+    ];
+  },
 };
 
 export default nextConfig;

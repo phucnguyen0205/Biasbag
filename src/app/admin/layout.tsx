@@ -19,6 +19,9 @@ import { SITE } from "@/lib/constants";
 
 export const metadata = {
   title: "Quản trị",
+  // Toàn bộ khu vực quản trị không được lập chỉ mục (kể cả khi Google đã
+  // lỡ vào index trước đó).
+  robots: { index: false, follow: false },
 };
 
 const LINKS = [

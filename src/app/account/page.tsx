@@ -13,6 +13,7 @@ import { SITE } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "Tài khoản của tôi",
+  robots: { index: false, follow: false },
 };
 
 /**

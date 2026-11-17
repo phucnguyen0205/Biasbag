@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "seed:images": "tsx --env-file=.env.local scripts/seed-images.ts",
     "check:env": "tsx --env-file=.env.local scripts/check-env.ts",
+    "check:seo": "tsx scripts/check-seo.ts",
     "auth:admin": "tsx --env-file=.env.local scripts/create-admin.ts",
     "auth:delete": "tsx --env-file=.env.local scripts/delete-user.ts",
     "db:sync": "tsx scripts/sync-migration.ts",
@@ -21,6 +22,7 @@
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.119.0",
+    "@vercel/analytics": "^2.0.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.469.0",
     "next": "^15.1.3",

@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: "Đăng nhập / Đăng ký",
   description:
     "Đăng nhập hoặc tạo tài khoản BIAS BAG để theo dõi đơn hàng và lưu thông tin giao hàng.",
+  robots: { index: false, follow: false },
 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;

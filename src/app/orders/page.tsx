@@ -7,6 +7,7 @@ import OrderTracker from "@/components/order/order-tracker";
 
 export const metadata = {
   title: "Tra cứu đơn hàng",
+  robots: { index: false, follow: false },
 };
 
 const toneClass: Record<string, string> = {

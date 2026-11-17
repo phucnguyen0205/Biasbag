@@ -14,6 +14,7 @@ import OrderDetailCard from "@/components/order/order-detail-card";
 
 export const metadata: Metadata = {
   title: "Chi tiết đơn hàng",
+  robots: { index: false, follow: false },
 };
 
 export default async function OrderDetailPage({

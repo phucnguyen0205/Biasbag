@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   title: "Tra cứu đơn hàng",
   description:
     "Tra cứu trạng thái đơn hàng BIAS BAG bằng mã đơn — không cần đăng nhập.",
+  robots: { index: false, follow: false },
 };
 
 export default function OrderLookupPage() {

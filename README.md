@@ -350,6 +350,7 @@ npm run typecheck      # tsc --noEmit
 npm run lint           # eslint
 npm run seed:images    # tải ảnh mẫu lên Supabase Storage + cập nhật products.image_url
 npm run check:env      # kiểm tra cấu hình .env.local + kết nối Supabase + bảng + bucket
+npm run check:seo      # kiểm tra robots.txt / sitemap.xml / canonical / JSON-LD trên website đang chạy
 npm run db:sync        # sinh supabase/migrations/*.sql từ supabase/schema.sql
 npm run db:push        # đẩy schema + seed lên Supabase (CLI, fallback Management API)
 npm run auth:admin     # tạo/nâng tài khoản admin (--email, --password)
@@ -456,6 +457,7 @@ và **không đặt được hàng**. Vercel → Settings → Environment Variab
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | ✅   | Không đăng nhập được                                 |
 | `SUPABASE_SERVICE_ROLE_KEY`      | ✅        | Admin login sai role, đổi email/mật khẩu hỏng, **không đặt được hàng** |
 | `NEXT_PUBLIC_SITE_URL`           | ⬜        | OG image / sitemap / robots trỏ sai domain           |
+| `GOOGLE_SITE_VERIFICATION`       | ⬜        | Không xác minh được với Google Search Console        |
 
 > `SUPABASE_SERVICE_ROLE_KEY` lấy ở Supabase → Project Settings → API →
 > **secret key** (`sb_secret_…`). Đặt cho cả **Production**, **Preview** và
@@ -499,6 +501,84 @@ Trang `/admin/profile` cho phép admin:
 
 Cả hai thao tác dùng service role key nên **bắt buộc phải có**
 `SUPABASE_SERVICE_ROLE_KEY`.
+
+## Google Search Console (chỉ mục web)
+
+Toàn bộ phần cấu hình đã có sẵn trong code — việc còn lại là **thêm property
+trên Google Search Console** và **dán mã xác minh** vào biến môi trường.
+
+### Những gì dự án đã chuẩn bị
+
+| Hạng mục           | Vị trí                                                | Ghi chú                                       |
+| ------------------ | ----------------------------------------------------- | --------------------------------------------- |
+| Sitemap            | `src/app/sitemap.ts`                                  | Sinh động từ DB: trang tĩnh + sản phẩm + danh mục + bài viết |
+| Robots             | `src/app/robots.ts`                                   | Trỏ `Sitemap:` + chặn trang riêng tư          |
+| Canonical          | `src/lib/seo.ts` (`buildPageMetadata`)                 | Mọi trang đều có `alternates.canonical`        |
+| JSON-LD            | `src/components/seo/json-ld.tsx`                      | `Organization`, `WebSite`, `Product`, `Article`, `BreadcrumbList`… |
+| Thẻ xác minh       | `src/app/layout.tsx` (`metadata.verification.google`)  | Đọc từ env, không cần sửa code                |
+| File xác minh      | `src/app/api/google-verification/route.ts`            | Sinh `/google<token>.html` từ env             |
+| Analytics           | `@vercel/analytics` (`<Analytics />` trong layout)    | Đo lưu lượng truy cập                         |
+
+### Bước 1 — Thêm property
+
+1. Vào [search.google.com/search-console](https://search.google.com/search-console)
+2. Nhấn **Add property** (Thuộc tính) → chọn loại **Domain** và nhập `biasbag.shop`
+   (loại Domain bao gồm cả `www` và mọi subdomain — khuyến nghị)
+3. Google hiển thị một **DNS TXT record** → dán vào DNS của domain (nhà cung cấp
+   nơi bạn mua `biasbag.shop`)
+
+> Nếu không quản lý DNS được, dùng loại **URL-prefix** với `https://biasbag.shop`
+> và xác minh bằng **HTML thẻ** hoặc **HTML file** (cả hai đều đã tích hợp sẵn).
+
+### Bước 2 — Dán mã xác minh
+
+| Cách xác minh | Mã cần lấy ở đâu                        | Cách dán vào dự án                                                     |
+| ------------- | ---------------------------------------- | ---------------------------------------------------------------------- |
+| **HTML thẻ**  | Xác minh → HTML thẻ → copy `content`     | Set `GOOGLE_SITE_VERIFICATION=<mã>` trên Vercel → deploy lại           |
+| **HTML file** | Xác minh → HTML file → copy tên file    | Set `GOOGLE_SITE_VERIFICATION=<mã>` trên Vercel → deploy lại           |
+| **DNS TXT**   | Xác minh → DNS → bảng ghi TXT          | Không cần deploy — thêm bản ghi DNS rồi bấm Xác minh                  |
+
+Trên Vercel: **Project → Settings → Environment Variables** → thêm
+`GOOGLE_SITE_VERIFICATION` (đặt cho cả **Production** và **Preview**) → **Redeploy**.
+
+Sau khi deploy, kiểm tra:
+
+```bash
+curl https://biasbag.shop | grep -o 'google-site-verification" content="[^"]*"'
+curl https://biasbag.shop/googleABC123.html   # tên file Google cấp
+```
+
+### Bước 3 — Gửi sitemap
+
+Trong Search Console → **Sitemaps** → mục `Sitemap` → nhập:
+
+```
+sitemap.xml
+```
+
+Google sẽ tự đọc `https://biasbag.shop/sitemap.xml`. Ngoài ra `robots.txt` đã
+trỏ sẵn tới sitemap nên Google cũng tự tìm thấy.
+
+### Bước 4 — Yêu cầu lập chỉ mục (Request indexing)
+
+Với các URL quan trọng (trang chủ, từng sản phẩm, từng bài viết):
+
+1. Vào **URL Inspection** trên thanh công cụ Search Console
+2. Dán URL → **Enter** → **Request Indexing**
+
+`robots.txt` đã chặn `/admin`, `/login`, `/cart`, `/checkout`, `/orders`,
+`/account`; các trang này cũng có `noindex` nên sẽ không bị lập chỉ mục.
+
+### Kiểm tra tự động
+
+```bash
+npm run check:seo -- https://biasbag.shop
+```
+
+Script kiểm tra: `robots.txt` (có khai báo sitemap, chặn trang riêng tư),
+`sitemap.xml` (URL đúng domain, không trùng lặp, không chứa trang riêng tư),
+thẻ `google-site-verification`, và canonical + JSON-LD + title + description
+trên các trang chính.
 
 ## Thanh toán
 

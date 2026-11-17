@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Plus_Jakarta_Sans, Titan_One } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { SITE } from "@/lib/constants";
+import { SITE_URL } from "@/lib/seo";
 import Header from "@/components/layout/header";
 import { HeaderOffset } from "@/components/layout/header-offset";
 import Footer from "@/components/layout/footer";
@@ -23,9 +25,7 @@ const titanOne = Titan_One({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://biasbag.vn",
-  ),
+  metadataBase: new URL(SITE_URL),
   title: {
     // Trang chủ khai báo metadata riêng (absolute) — giá trị default ở đây
     // chỉ là fallback cho các route chưa khai báo title.
@@ -69,6 +69,27 @@ export const metadata: Metadata = {
   },
   robots: { index: true, follow: true },
   formatDetection: { telephone: true, address: true, email: true },
+
+  /**
+   * Xác minh quyền sở hữu website với Google Search Console.
+   *
+   * - `google`      → render `<meta name="google-site-verification" content="...">`
+   * - `other`       → hỗ trợ thêm Bing (`msvalidate.01`) nếu cần.
+   *
+   * Token lấy từ Google Search Console → Thuộc tính → Xác minh → HTML thẻ.
+   * Nếu chưa set env → Next.js tự bỏ qua (không render thẻ rỗng).
+   */
+  verification: {
+    google:
+      process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION?.trim() ||
+      process.env.GOOGLE_SITE_VERIFICATION?.trim() ||
+      undefined,
+    other: {
+      ...(process.env.BING_SITE_VERIFICATION?.trim()
+        ? { "msvalidate.01": process.env.BING_SITE_VERIFICATION.trim() }
+        : {}),
+    },
+  },
 };
 
 export const viewport: Viewport = {
@@ -97,6 +118,7 @@ export default function RootLayout({
         <main className="flex-1">{children}</main>
         <Footer />
         <Toaster />
+        <Analytics />
       </body>
     </html>
   );

@@ -10,7 +10,8 @@ import {
   Target,
 } from "lucide-react";
 import { CORE_VALUES, SITE, STYLE_LINES } from "@/lib/constants";
-import { buildPageMetadata } from "@/lib/seo";
+import { buildPageMetadata, SITE_URL } from "@/lib/seo";
+import { JsonLd, breadcrumbJsonLd } from "@/components/seo/json-ld";
 
 export const metadata: Metadata = buildPageMetadata("about");
 
@@ -58,8 +59,47 @@ const CHANNELS = [
 ] as const;
 
 export default function AboutPage() {
+  // JSON-LD: AboutPage + Organization + BreadcrumbList
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "AboutPage",
+        "@id": `${SITE_URL}/about#webpage`,
+        url: `${SITE_URL}/about`,
+        name: "Về Chúng Tôi – Câu Chuyện Thương Hiệu BIAS BAG",
+        description:
+          "Tìm hiểu hành trình của BIAS BAG – thương hiệu chuyên túi vải canvas dày dặn, thiết kế độc bản và nhận in hình cá nhân, idol sắc nét, giao hàng nhanh.",
+        isPartOf: { "@id": `${SITE_URL}/#website` },
+        about: { "@id": `${SITE_URL}/#organization` },
+      },
+      {
+        "@type": "Organization",
+        "@id": `${SITE_URL}/#organization`,
+        name: SITE.name,
+        url: SITE_URL,
+        logo: `${SITE_URL}${SITE.logoOg}`,
+        description: SITE.seoDescription,
+        email: SITE.email,
+        telephone: SITE.phone,
+        foundingDate: "2024",
+        address: {
+          "@type": "PostalAddress",
+          streetAddress: SITE.address,
+          addressCountry: "VN",
+        },
+        sameAs: [SITE.social.facebook, SITE.social.shopee],
+      },
+      breadcrumbJsonLd([
+        { name: "Trang chủ", url: SITE_URL },
+        { name: "Về BIAS BAG", url: `${SITE_URL}/about` },
+      ]),
+    ],
+  };
+
   return (
     <>
+      <JsonLd data={jsonLd} />
       {/* ── Hero ───────────────────────────────────────────────────────────
           Lặp lại đúng cấu trúc chữ của banner trang chủ:
           badge → wordmark viết tay → tagline in hoa → mô tả → CTA.
