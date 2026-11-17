@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Playfair_Display, Titan_One } from "next/font/google";
+import { Inter, Plus_Jakarta_Sans, Titan_One } from "next/font/google";
 import "./globals.css";
 import { SITE } from "@/lib/constants";
 import Header from "@/components/layout/header";
@@ -8,9 +8,11 @@ import Footer from "@/components/layout/footer";
 import { Toaster } from "@/components/ui/toaster";
 
 const inter = Inter({ subsets: ["vietnamese", "latin"], variable: "--font-inter" });
-const playfair = Playfair_Display({
+// Display font: sans-serif hiện đại (bo tròn, mềm) — khớp tinh thần
+// "phụ kiện nhỏ, phong cách riêng" và tránh mọi fallback serif (Times New Roman).
+const jakarta = Plus_Jakarta_Sans({
   subsets: ["vietnamese", "latin"],
-  variable: "--font-playfair",
+  variable: "--font-jakarta",
 });
 // Display font dạng chữ đậm/bo tròn, khớp với wordmark trong logo BIAS BAG
 // (Titan One chỉ có subset latin — dùng cho wordmark "Bias Bag")
@@ -80,7 +82,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="vi" className={`${inter.variable} ${playfair.variable} ${titanOne.variable}`}>
+    <html
+      lang="vi"
+      className={`${inter.variable} ${jakarta.variable} ${titanOne.variable}`}
+    >
       <body className="flex min-h-screen flex-col">
         <Header />
         <HeaderOffset />
