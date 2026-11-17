@@ -518,6 +518,7 @@ trên Google Search Console** và **dán mã xác minh** vào biến môi trư�
 | Thẻ xác minh       | `src/app/layout.tsx` (`metadata.verification.google`)  | Đọc từ env, không cần sửa code                |
 | File xác minh      | `src/app/api/google-verification/route.ts`            | Sinh `/google<token>.html` từ env             |
 | Analytics           | `@vercel/analytics` (`<Analytics />` trong layout)    | Đo lưu lượng truy cập                         |
+| Speed Insights      | `@vercel/speed-insights` (`<SpeedInsights />`)       | Đo Core Web Vitals (LCP/CLS/INP) thực tế      |
 
 ### Bước 1 — Thêm property
 
@@ -530,23 +531,71 @@ trên Google Search Console** và **dán mã xác minh** vào biến môi trư�
 > Nếu không quản lý DNS được, dùng loại **URL-prefix** với `https://biasbag.shop`
 > và xác minh bằng **HTML thẻ** hoặc **HTML file** (cả hai đều đã tích hợp sẵn).
 
-### Bước 2 — Dán mã xác minh
+### Bước 2 — Lấy mã xác minh (HTML thẻ) & dán vào dự án
 
-| Cách xác minh | Mã cần lấy ở đâu                        | Cách dán vào dự án                                                     |
-| ------------- | ---------------------------------------- | ---------------------------------------------------------------------- |
-| **HTML thẻ**  | Xác minh → HTML thẻ → copy `content`     | Set `GOOGLE_SITE_VERIFICATION=<mã>` trên Vercel → deploy lại           |
-| **HTML file** | Xác minh → HTML file → copy tên file    | Set `GOOGLE_SITE_VERIFICATION=<mã>` trên Vercel → deploy lại           |
-| **DNS TXT**   | Xác minh → DNS → bảng ghi TXT          | Không cần deploy — thêm bản ghi DNS rồi bấm Xác minh                  |
+**Ba cách xác minh trong Search Console:**
 
-Trên Vercel: **Project → Settings → Environment Variables** → thêm
-`GOOGLE_SITE_VERIFICATION` (đặt cho cả **Production** và **Preview**) → **Redeploy**.
+| Cách xác minh | Mã cần lấy ở đâu | Cách dán vào dự án |
+| ------------- | ----------------- | ------------------ |
+| **HTML thẻ** | Xác minh → HTML thẻ → copy `content` | Set `GOOGLE_SITE_VERIFICATION=<mã>` trên Vercel → redeploy lại |
+| **HTML file** | Xác minh → HTML file → copy tên file | Set `GOOGLE_SITE_VERIFICATION=<mã>` trên Vercel → redeploy lại |
+| **DNS TXT** | Xác minh → DNS → bản ghi TXT | Không cần deploy — thêm bản ghi DNS rồi bấm Xác minh |
 
-Sau khi deploy, kiểm tra:
+> Một biến `GOOGLE_SITE_VERIFICATION` phục vụ **cả hai** cách HTML thẻ và
+> HTML file — vì tên file mà Google cấp (`google<token>.html`) cũng chứa chính
+> token đó.
+
+**Lấy mã:**
+
+1. Vào [search.google.com/search-console](https://search.google.com/search-console)
+2. Chọn property `biasbag.shop` (nếu chưa có thì làm **Bước 1** trước)
+3. Menu bên trái: **Thuộc tính** → **Xác minh** (Verification)
+4. Chọn loại **HTML thẻ** (HTML tag)
+5. Google hiển thị một khối mã dạng:
+   ```html
+   <meta name="google-site-verification" content="AbCdEf1234567890_xYz..." />
+   ```
+6. Bấm **Sao chép** ở khối mã đó → bạn có chuỗi token (VD: `AbCdEf1234567890_xYz`)
+7. Nhấn **Xác minh** → Google kiểm tra thẻ meta trên trang chủ
+
+> Google hiển thị tên token cho file HTML cũng là **chính chuỗi token đó**,
+> nên cài đặt chỉ cần **một** biến cho cả hai phương thức.
+
+**Dán vào dự án:**
+
+1. Vercel → Project **biasbag** → **Settings** → **Environment Variables**
+2. **Add** → Key: `GOOGLE_SITE_VERIFICATION` → Value: dán token → chọn cả
+   **Production** và **Preview** → **Save**
+3. **Redeploy** (bắt buộc — thẻ meta được sinh lúc build)
+
+**Kiểm tra sau khi deploy:**
 
 ```bash
 curl https://biasbag.shop | grep -o 'google-site-verification" content="[^"]*"'
-curl https://biasbag.shop/googleABC123.html   # tên file Google cấp
+# → google-site-verification" content="AbCdEf1234567890_xYz"
+
+curl https://biasbag.shop/googleAbCdEf1234567890_xYz.html
+# → google-site-verification: AbCdEf1234567890_xYz
 ```
+
+Nếu lệnh đầu **không có output** → env chưa được set hoặc chưa redeploy.
+Nếu lệnh thứ hai trả **404** → token trong env khác token Google cấp.
+
+**Cách làm cục bộ (không cần Vercel):** điền vào `.env.local` rồi `npm run build`
+— thẻ meta được sinh từ `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` hoặc
+`GOOGLE_SITE_VERIFICATION`.
+
+### Bước 2b — Nếu dùng DNS TXT (không cần deploy)
+
+Trong **Xác minh** → tab **DNS**, Google cấp một bản ghi TXT:
+
+| Loại | Tên | Giá trị                     |
+| ---- | --- | --------------------------- |
+| TXT  | `_google` | `google-site-verification=AbCdEf...` |
+
+Thêm bản ghi đó ở nhà cung cấp domain (nơi quản lý DNS của `biasbag.shop`) →
+chờ TTL hết hạn → bấm **Xác minh**. Cách này ổn định nhất vì không phụ thuộc
+deploy.
 
 ### Bước 3 — Gửi sitemap
 
