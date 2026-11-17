@@ -53,6 +53,11 @@ async function main() {
       } else {
         warn("chưa chặn /admin trong robots.txt");
       }
+      if (/<html|<!DOCTYPE/i.test(text)) {
+        fail("robots.txt trả về HTML thay vì văn bản thuần");
+      } else {
+        ok("là văn bản thuần (không phải HTML)");
+      }
     }
   } catch (e) {
     fail(`không tải được robots.txt: ${(e as Error).message}`);
@@ -68,6 +73,29 @@ async function main() {
       fail(`sitemap.xml trả về ${res.status}`);
     } else {
       ok(`sitemap.xml (${res.status})`);
+
+      // ⚠️ Lỗi "Sơ đồ trang web của bạn dường như là một trang HTML" trong
+      // Google Search Console xảy ra khi GSC fetch `/sitemap.xml` mà nhận về
+      // HTML thay vì XML. Kiểm tra chính xác điều đó ở đây.
+      const contentType = res.headers.get("content-type") ?? "";
+      if (/xml/i.test(contentType)) {
+        ok(`content-type: ${contentType}`);
+      } else {
+        fail(`content-type không phải XML: "${contentType}"`);
+      }
+
+      if (/^\s*<\?xml/i.test(xml)) {
+        ok("bắt đầu bằng khai báo XML");
+      } else {
+        fail("nội dung không bắt đầu bằng <?xml — có thể là trang HTML");
+      }
+
+      if (/<html|<!DOCTYPE html/i.test(xml)) {
+        fail("nội dung chứa thẻ HTML — GSC sẽ báo lỗi 'sitemap là trang HTML'");
+      } else {
+        ok("không chứa thẻ HTML");
+      }
+
       const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
       ok(`${locs.length} URL trong sitemap`);
 
