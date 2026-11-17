@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Plus_Jakarta_Sans, Titan_One } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { SITE } from "@/lib/constants";
 import { SITE_URL } from "@/lib/seo";
@@ -119,6 +120,7 @@ export default function RootLayout({
         <Footer />
         <Toaster />
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
