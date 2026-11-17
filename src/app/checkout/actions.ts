@@ -18,6 +18,14 @@ import { grantOrderAccess } from "@/lib/order-access";
 
 const orderItemSchema = z.object({
   productId: z.string().min(1),
+  /**
+   * Slug sản phẩm.
+   *
+   * Dùng làm "khoá dự phòng" khi `productId` trong giỏ hàng không còn hợp lệ
+   * (ID cũ đã bị xoá, hoặc ID kiểu fallback `p-1` từ chế độ demo). Khi đó
+   * server tra cứu sản phẩm theo slug để vẫn tạo được đơn hàng.
+   */
+  slug: z.string().min(1),
   name: z.string().min(1),
   image: z.string().nullable(),
   price: z.number().nonnegative(),
@@ -52,6 +60,18 @@ export type CheckoutState = {
   /** Mã đơn dễ đọc (BB-YYMMDD-000123) — khách dùng để tra cứu. */
   orderCode?: string;
   fieldErrors?: Record<string, string>;
+};
+
+/** Dòng sản phẩm đọc từ DB (chỉ các cột cần dùng cho đơn hàng). */
+type CheckoutProductRow = {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  sale_price: number | null;
+  stock: number;
+  in_stock: boolean;
+  is_active: boolean;
 };
 
 export async function submitOrder(
@@ -122,18 +142,99 @@ export async function submitOrder(
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Kiểm tra tồn kho và giá thực tế từ database — không tin giá do client gửi lên.
-  const productIds = lines.map((l) => l.productId);
-  const { data: dbProducts } = await supabase
-    .from("products")
-    .select("id, name, price, sale_price, stock, in_stock, is_active")
-    .in("id", productIds);
+  // Client ghi DB.
+  //
+  // Ưu tiên service role (bypass RLS). Nếu thiếu `SUPABASE_SERVICE_ROLE_KEY`
+  // (cấu hình sai trên hosting) → fallback sang client theo session. Khi đó
+  // chỉ khách ĐÃ ĐĂNG NHẬP mới ghi được `order_items` (policy
+  // `order_items_insert_own`); guest sẽ nhận thông báo lỗi rõ ràng thay vì
+  // lỗi 500.
+  let admin: Awaited<ReturnType<typeof createAdminClient>>;
+  let usingServiceRole = true;
+  try {
+    admin = await createAdminClient();
+  } catch {
+    admin = (await createClient()) as unknown as Awaited<
+      ReturnType<typeof createAdminClient>
+    >;
+    usingServiceRole = false;
+  }
 
-  if (!dbProducts || dbProducts.length !== productIds.length) {
+  // ── Đọc sản phẩm từ database ────────────────────────────────────────────
+  //
+  // VÌ SAO DÙNG SERVICE ROLE Ở ĐÂY:
+  // Client theo session bị RLS lọc `is_active = true` → sản phẩm admin vừa
+  // ẩn đi sẽ biến mất khỏi kết quả và tạo ra thông báo sai báo "sản phẩm
+  // không còn tồn tại". Đọc bằng service role thấy đủ mọi sản phẩm → mình
+  // tự kiểm tra `is_active` và báo đúng nguyên nhân ("đã ngừng bán").
+  //
+  // VÌ SAO PHẢI LỌC ID KHÔNG PHẢI UUID:
+  // Cột `id` là `uuid`. Nếu giỏ hàng còn sót ID kiểu fallback (`p-1`) hoặc ID
+  // của sản phẩm đã bị xoá, PostgREST trả lỗi `invalid input syntax for type
+  // uuid` cho CẢ câu query → `dbProducts` = null → mọi đơn đều báo "sản phẩm
+  // không còn tồn tại", kể cả khi giỏ hoàn toàn hợp lệ.
+  const UUID_RE =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  const productIds = lines.map((l) => l.productId);
+  const validIds = productIds.filter((id) => UUID_RE.test(id));
+
+  // ID không hợp lệ → thử tra cứu theo slug (giỏ hàng luôn lưu slug).
+  const slugsOfInvalid = lines
+    .filter((l) => !UUID_RE.test(l.productId))
+    .map((l) => l.slug)
+    .filter(Boolean);
+
+  let dbProducts: CheckoutProductRow[] = [];
+
+  if (validIds.length) {
+    const { data, error } = await admin
+      .from("products")
+      .select("id, name, slug, price, sale_price, stock, in_stock, is_active")
+      .in("id", validIds);
+
+    if (error) {
+      return {
+        status: "error",
+        message: `Không tải được thông tin sản phẩm. Vui lòng thử lại (${error.message}).`,
+      };
+    }
+    dbProducts = (data ?? []) as CheckoutProductRow[];
+  }
+
+  // Bù lại các dòng có ID không hợp lệ bằng cách tra theo slug.
+  if (slugsOfInvalid.length) {
+    const { data: bySlug } = await admin
+      .from("products")
+      .select("id, name, slug, price, sale_price, stock, in_stock, is_active")
+      .in("slug", slugsOfInvalid);
+
+    dbProducts = dbProducts.concat((bySlug ?? []) as CheckoutProductRow[]);
+  }
+
+  // Bỏ trùng (một sản phẩm có thể được tìm thấy cả theo id lẫn theo slug).
+  const uniqueProducts = new Map<string, CheckoutProductRow>();
+  for (const p of dbProducts) uniqueProducts.set(p.id, p);
+  dbProducts = [...uniqueProducts.values()];
+
+  // Ánh xạ từng dòng trong giỏ → sản phẩm thật trong DB.
+  //
+  // Ưu tiên khớp theo `id`; nếu id trong giỏ không phải UUID / đã cũ thì
+  // khớp theo `slug` (giỏ hàng luôn lưu slug nên vẫn cứu được đơn hàng).
+  const byId = new Map(dbProducts.map((p) => [p.id, p]));
+  const bySlug = new Map(dbProducts.map((p) => [p.slug, p]));
+
+  const resolved = lines.map((l) => ({
+    line: l,
+    product: byId.get(l.productId) ?? bySlug.get(l.slug) ?? null,
+  }));
+
+  // Sản phẩm thực sự không còn trong DB (đã bị xoá) → báo rõ tên sản phẩm.
+  const missing = resolved.filter((r) => !r.product);
+  if (missing.length) {
     return {
       status: "error",
-      message:
-        "Một số sản phẩm không còn tồn tại. Vui lòng cập nhật lại giỏ hàng.",
+      message: `Sản phẩm "${missing[0].line.name}" không còn trong hệ thống. Vui lòng bỏ sản phẩm này khỏi giỏ hàng rồi đặt lại.`,
     };
   }
 
@@ -142,6 +243,7 @@ export async function submitOrder(
       p.id,
       {
         name: p.name,
+        slug: p.slug,
         price: Number(p.price),
         salePrice: p.sale_price != null ? Number(p.sale_price) : null,
         stock: Number(p.stock),
@@ -151,9 +253,9 @@ export async function submitOrder(
     ]),
   );
 
-  for (const l of lines) {
-    const info = priceMap.get(l.productId);
-    if (!info) continue;
+  for (const { line: l, product } of resolved) {
+    if (!product) continue;
+    const info = priceMap.get(product.id)!;
 
     if (!info.isActive) {
       return {
@@ -180,8 +282,8 @@ export async function submitOrder(
   // Tính tổng từ giá trong DATABASE (không phải giá client gửi lên) và
   // dùng CHUNG một hàm `calculateTotals` với UI → tổng hiển thị và tổng lưu
   // DB luôn khớp (kể cả phí vận chuyển).
-  const pricedLines = lines.map((l) => {
-    const info = priceMap.get(l.productId);
+  const pricedLines = resolved.map(({ line: l, product }) => {
+    const info = product ? priceMap.get(product.id) : undefined;
     return {
       price: info?.price ?? l.price,
       salePrice: info?.salePrice ?? l.salePrice,
@@ -189,28 +291,6 @@ export async function submitOrder(
     };
   });
   const { subtotal, shipping, total } = calculateTotals(pricedLines);
-
-  // Ghi đơn hàng bằng service role.
-  //
-  // Server action đã kiểm tra kỹ: giá và tồn kho lấy từ database, không tin
-  // dữ liệu client gửi lên. Nếu dùng client thường (bị RLS giới hạn), guest
-  // không thể ghi được `order_items` vào đơn của chính mình — RLS không phân
-  // biệt được "đơn vừa tạo" với "đơn của người khác".
-  //
-  // Nếu thiếu `SUPABASE_SERVICE_ROLE_KEY` (cấu hình sai trên hosting) →
-  // fallback sang client theo session. Khi đó chỉ khách ĐÃ ĐĂNG NHẬP mới
-  // ghi được `order_items` (policy `order_items_insert_own`); guest sẽ nhận
-  // thông báo lỗi rõ ràng thay vì lỗi 500 chung chung.
-  let admin: Awaited<ReturnType<typeof createAdminClient>>;
-  let usingServiceRole = true;
-  try {
-    admin = await createAdminClient();
-  } catch {
-    admin = (await createClient()) as unknown as Awaited<
-      ReturnType<typeof createAdminClient>
-    >;
-    usingServiceRole = false;
-  }
 
   // Dò cột mới của bảng `orders` (cache 1 lần cho toàn tiến trình).
   // Nếu migration chưa chạy → bỏ các cột đó khỏi payload để luồng thanh toán
@@ -272,15 +352,17 @@ export async function submitOrder(
   }
 
   const { error: itemsError } = await admin.from("order_items").insert(
-    lines.map((l) => {
-      const info = priceMap.get(l.productId);
+    resolved.map(({ line: l, product }) => {
+      const info = product ? priceMap.get(product.id) : undefined;
       const unit =
         info && info.salePrice != null && info.salePrice < info.price
           ? info.salePrice
           : info?.price ?? l.price;
       return {
         order_id: order.id,
-        product_id: l.productId,
+        // `product_id` phải là UUID thật trong DB (không phải id cũ trong
+        // giỏ hàng) — dùng id đã resolve từ `resolved`.
+        product_id: product?.id ?? l.productId,
         // Tên và giá lấy từ database, không lấy từ dữ liệu client gửi lên.
         product_name: info?.name ?? l.name,
         product_image: l.image,
@@ -328,10 +410,13 @@ export async function submitOrder(
   const hasStockRpc = usingServiceRole;
   const stockResults: boolean[] = [];
 
-  for (const l of lines) {
+  for (const { line: l, product } of resolved) {
+    const productId = product?.id ?? l.productId;
+    const knownStock = product ? priceMap.get(product.id)?.stock : undefined;
+
     if (hasStockRpc) {
       const { data: ok } = await admin.rpc("decrement_product_stock", {
-        p_product_id: l.productId,
+        p_product_id: productId,
         p_quantity: l.quantity,
       });
       stockResults.push(ok === true);
@@ -339,13 +424,10 @@ export async function submitOrder(
       const { data: ok } = await admin
         .from("products")
         .update({
-          stock: Math.max(
-            0,
-            (priceMap.get(l.productId)?.stock ?? l.quantity) - l.quantity,
-          ),
+          stock: Math.max(0, (knownStock ?? l.quantity) - l.quantity),
         })
-        .eq("id", l.productId)
-        .eq("stock", priceMap.get(l.productId)?.stock ?? l.quantity)
+        .eq("id", productId)
+        .eq("stock", knownStock ?? l.quantity)
         .select("id")
         .maybeSingle();
       stockResults.push(!!ok);
@@ -357,21 +439,24 @@ export async function submitOrder(
     // Không đủ hàng (đơn khác vừa bán trước) → huỷ đơn này và hoàn lại
     // những dòng đã trừ thành công trước đó.
     for (let i = 0; i < failedIndex; i++) {
-      const done = lines[i];
-      if (hasStockRpc) {
+      const done = resolved[i];
+      if (hasStockRpc && done.product) {
         await admin.rpc("restore_product_stock", {
-          p_product_id: done.productId,
-          p_quantity: done.quantity,
+          p_product_id: done.product.id,
+          p_quantity: done.line.quantity,
         });
       }
     }
     await admin.from("order_items").delete().eq("order_id", order.id);
     await admin.from("orders").delete().eq("id", order.id);
 
-    const info = priceMap.get(lines[failedIndex].productId);
+    const failed = resolved[failedIndex];
+    const failedInfo = failed.product
+      ? priceMap.get(failed.product.id)
+      : undefined;
     return {
       status: "error",
-      message: `"${info?.name ?? "Sản phẩm"}" vừa hết hàng do có người khác đặt trước. Vui lòng cập nhật lại giỏ hàng.`,
+      message: `"${failedInfo?.name ?? failed.line.name}" vừa hết hàng do có người khác đặt trước. Vui lòng cập nhật lại giỏ hàng.`,
     };
   }
 

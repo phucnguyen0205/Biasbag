@@ -2,8 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { AlertTriangle, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { useCart } from "@/lib/store/cart";
+import { checkCartLines } from "@/app/cart/actions";
 import { formatPrice } from "@/lib/utils";
 import { calculateTotals } from "@/lib/pricing";
 import { useHydrated } from "@/hooks/use-cart-count";
@@ -11,6 +13,65 @@ import { useHydrated } from "@/hooks/use-cart-count";
 export default function CartView() {
   const { lines, setQuantity, remove } = useCart();
   const hydrated = useHydrated();
+
+  /** Cảnh báo: sản phẩm đã ngừng bán / hết hàng. */
+  const [warning, setWarning] = useState<string | null>(null);
+
+  // Đồng bộ giỏ hàng với database: xoá sản phẩm không còn tồn tại và cập
+  // nhật tồn kho mới. Chạy 1 lần mỗi khi danh sách sản phẩm trong giỏ đổi.
+  const checkedRef = useRef<string>("");
+  const linesSignature = lines.map((l) => `${l.productId}:${l.quantity}`).join("|");
+
+  useEffect(() => {
+    if (!hydrated || !lines.length) return;
+    if (checkedRef.current === linesSignature) return;
+    checkedRef.current = linesSignature;
+
+    let cancelled = false;
+
+    void (async () => {
+      const result = await checkCartLines(
+        lines.map((l) => ({
+          productId: l.productId,
+          slug: l.slug,
+          quantity: l.quantity,
+        })),
+      );
+      if (cancelled) return;
+
+      // Xoá sản phẩm không còn tồn tại trong DB.
+      for (const id of result.removedIds) {
+        remove(id);
+      }
+
+      // Đồng bộ tồn kho mới nhất.
+      for (const line of lines) {
+        const stock = result.stockBySlug[line.slug];
+        if (stock != null && line.quantity > stock) {
+          setQuantity(line.productId, Math.max(1, stock));
+        }
+      }
+
+      const notes: string[] = [];
+      if (result.removedIds.length) {
+        notes.push(
+          `${result.removedIds.length} sản phẩm không còn được bán đã được xoá khỏi giỏ hàng.`,
+        );
+      }
+      if (result.inactiveNames.length) {
+        notes.push(`"${result.inactiveNames[0]}" hiện đã ngừng bán.`);
+      }
+      if (result.outOfStockNames.length) {
+        notes.push(`"${result.outOfStockNames[0]}" đã hết hàng.`);
+      }
+      if (notes.length) setWarning(notes.join(" "));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, linesSignature]);
 
   if (!hydrated) {
     return (
@@ -44,6 +105,13 @@ export default function CartView() {
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
+      {warning && (
+        <p className="card flex items-start gap-2 bg-amber-50 p-4 text-sm text-amber-800 lg:col-span-2">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{warning}</span>
+        </p>
+      )}
+
       <div className="card divide-y divide-ink-100">
         {lines.map((l) => (
           <div key={l.productId} className="flex gap-4 p-4">

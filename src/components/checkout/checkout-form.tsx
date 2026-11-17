@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -12,6 +12,7 @@ import {
   Truck,
 } from "lucide-react";
 import { submitOrder, type CheckoutState } from "@/app/checkout/actions";
+import { checkCartLines } from "@/app/cart/actions";
 import { useCart } from "@/lib/store/cart";
 import { formatPrice } from "@/lib/utils";
 import { calculateTotals } from "@/lib/pricing";
@@ -43,11 +44,48 @@ export default function CheckoutForm() {
     submitOrder,
     initialState,
   );
-  const { lines, clear } = useCart();
+  const { lines, clear, remove } = useCart();
   const hydrated = useHydrated();
   const router = useRouter();
   const [paymentMethod, setPaymentMethod] =
     useState<PaymentMethodId>("cod");
+
+  // Đồng bộ giỏ hàng với database trước khi đặt.
+  //
+  // Giỏ nằm trong `localStorage` nên có thể còn sản phẩm đã bị xoá / đã
+  // ngừng bán. Nếu không dọn trước, lần bấm "Đặt hàng" sẽ bị server từ chối
+  // với thông báo chung chung. Ở đây ta tự xoá sản phẩm không còn tồn tại
+  // và cập nhật tồn kho → khách không phải xử lý thủ công.
+  const checkedRef = useRef<string>("");
+  const linesSignature = lines
+    .map((l) => `${l.productId}:${l.quantity}`)
+    .join("|");
+
+  useEffect(() => {
+    if (!hydrated || !lines.length) return;
+    if (checkedRef.current === linesSignature) return;
+    checkedRef.current = linesSignature;
+
+    let cancelled = false;
+
+    void (async () => {
+      const result = await checkCartLines(
+        lines.map((l) => ({
+          productId: l.productId,
+          slug: l.slug,
+          quantity: l.quantity,
+        })),
+      );
+      if (cancelled) return;
+
+      for (const id of result.removedIds) remove(id);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, linesSignature]);
 
   // Đơn tạo thành công → xoá giỏ hàng và chuyển tới trang xác nhận đơn.
   //
@@ -126,6 +164,7 @@ export default function CheckoutForm() {
         value={JSON.stringify(
           lines.map((l) => ({
             productId: l.productId,
+            slug: l.slug,
             name: l.name,
             image: l.image,
             price: l.price,
