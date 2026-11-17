@@ -1,0 +1,263 @@
+@import "tailwindcss";
+
+@theme {
+  /* ------------------------------------------------------------------
+     HỒNG — nguồn sự thật duy nhất cho màu nhận diện của BIAS BAG.
+     Trước đây có 2 ramp cùng tên ý nghĩa (`brand-*` và `blush-*`) với
+     giá trị ở bậc 300 khác nhau → cùng một ý định thiết kế nhưng ra 2
+     màu khác nhau trên màn hình. Nay gộp về 1 ramp hồng duy nhất.
+
+     Quy tắc dùng (đã kiểm tra tương phản WCAG):
+       - 50–300 : nền / viền / chip trang trí (KHÔNG dùng làm màu chữ).
+       - 400    : màu nhấn trang trí + chữ trên nền tối (7.6:1 trên ink-900).
+       - 500    : chữ phụ / biểu tượng trên nền trắng (4.77:1) ✔ AA.
+       - 600    : nền nút + chữ trên nền trắng (6.55:1) ✔ AA.
+       - 700+   : chữ đậm, hover, nền tối.
+     ------------------------------------------------------------------ */
+  --color-blush-50: #fff8f8;
+  --color-blush-100: #fdeef0;
+  --color-blush-200: #f8dcdf;
+  --color-blush-300: #f0bfc3;
+  --color-blush-400: #ddada0;
+  --color-blush-500: #a85f4c;
+  --color-blush-600: #8f4a39;
+  --color-blush-700: #74392b;
+  --color-blush-800: #5a2c21;
+  --color-blush-900: #432019;
+
+  /* Neutrals — ấm (sand). `ink-500` được nâng lên #807060 để đạt 4.77:1
+     trên nền trắng (chuẩn AA cho chữ 14px+). */
+  --color-ink-50: #faf8f6;
+  --color-ink-100: #f3efea;
+  --color-ink-200: #e6dfd7;
+  --color-ink-300: #d2c6b9;
+  --color-ink-400: #a29484;
+  --color-ink-500: #807060;
+  --color-ink-600: #726457;
+  --color-ink-700: #5d5147;
+  --color-ink-800: #403830;
+  --color-ink-900: #2a251f;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-playfair), ui-serif, Georgia, serif;
+  --font-script: var(--font-brand), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-white text-ink-800 antialiased;
+    font-family: var(--font-sans);
+  }
+  h1, h2, h3 {
+    @apply text-ink-900 tracking-tight;
+  }
+  ::selection {
+    @apply bg-blush-200 text-blush-900;
+  }
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-colors bg-ink-900 text-white hover:bg-ink-800 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-colors border border-ink-200 bg-white text-ink-800 hover:border-blush-400 hover:text-blush-700 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-accent {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-colors bg-blush-600 text-white hover:bg-blush-700 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-ink-600 transition-colors hover:bg-ink-50 hover:text-ink-900;
+  }
+  .card {
+    @apply rounded-2xl border border-ink-100 bg-white shadow-sm;
+  }
+  .input {
+    @apply w-full rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 text-sm text-ink-900 outline-none transition placeholder:text-ink-400 focus:border-blush-500 focus:ring-2 focus:ring-blush-100;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-ink-700;
+  }
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+  .section-title {
+    @apply font-display text-2xl font-semibold text-ink-900 sm:text-3xl;
+  }
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.18em] text-blush-600;
+  }
+  .link-underline {
+    @apply relative inline-block after:absolute after:inset-x-0 after:-bottom-0.5 after:h-px after:origin-left after:scale-x-0 after:bg-current after:transition-transform hover:after:scale-x-100;
+  }
+
+  /* ----------------------------------------------------------------
+     Nội dung bài viết
+     ------------------------------------------------------------------
+     HTML do admin nhập trong trình soạn thảo ở `/admin/posts`.
+     Ở đây chuẩn hoá lại: khoảng cách dễ đọc, ảnh bo góc, tiêu đề có
+     nhịp, link màu thương hiệu, bảng & trích dẫn không tràn khung.
+     ---------------------------------------------------------------- */
+  .prose-bb {
+    @apply text-[15px] leading-[1.75] text-ink-700;
+  }
+  .prose-bb > * + * {
+    @apply mt-5;
+  }
+  .prose-bb h2 {
+    @apply mt-10 font-display text-2xl font-semibold leading-snug text-ink-900;
+  }
+  .prose-bb h3 {
+    @apply mt-8 font-display text-xl font-semibold leading-snug text-ink-900;
+  }
+  .prose-bb h4 {
+    @apply mt-6 text-base font-semibold text-ink-900;
+  }
+  .prose-bb p {
+    @apply text-ink-700;
+  }
+  .prose-bb a {
+    @apply font-medium text-blush-700 underline decoration-blush-300 underline-offset-2 transition-colors hover:text-blush-800;
+  }
+  .prose-bb strong {
+    @apply font-semibold text-ink-900;
+  }
+  .prose-bb ul {
+    @apply list-disc space-y-2 pl-6 marker:text-blush-500;
+  }
+  .prose-bb ol {
+    @apply list-decimal space-y-2 pl-6 marker:font-semibold marker:text-blush-600;
+  }
+  .prose-bb li > ul,
+  .prose-bb li > ol {
+    @apply mt-2;
+  }
+  .prose-bb blockquote {
+    @apply border-l-4 border-blush-300 bg-blush-50 py-3 pl-5 pr-4 italic text-ink-700;
+  }
+  .prose-bb img {
+    @apply h-auto w-full rounded-2xl border border-ink-100;
+  }
+  .prose-bb figure {
+    @apply my-8;
+  }
+  .prose-bb figcaption {
+    @apply mt-2 text-center text-xs text-ink-500;
+  }
+  .prose-bb code {
+    @apply rounded bg-ink-50 px-1.5 py-0.5 text-[13px] text-blush-700;
+  }
+  .prose-bb pre {
+    @apply overflow-x-auto rounded-2xl bg-ink-900 p-4 text-sm text-ink-100;
+  }
+  .prose-bb pre code {
+    @apply bg-transparent p-0 text-inherit;
+  }
+  .prose-bb hr {
+    @apply my-10 border-ink-100;
+  }
+  .prose-bb table {
+    @apply w-full border-collapse overflow-hidden rounded-xl text-sm;
+  }
+  .prose-bb thead {
+    @apply bg-blush-50;
+  }
+  .prose-bb th {
+    @apply border border-ink-100 px-3 py-2.5 text-left font-semibold text-ink-900;
+  }
+  .prose-bb td {
+    @apply border border-ink-100 px-3 py-2.5;
+  }
+}
+
+/* ==================================================================
+   REVEAL — hiệu ứng "xuất hiện" cho từng phần / khối nội dung
+   ------------------------------------------------------------------
+   Dùng CSS **scroll-driven animation** (`animation-timeline: view()`):
+
+   • KHÔNG cần JavaScript → không thêm byte nào vào bundle, không ảnh
+     hưởng LCP / TBT (đây là điều kiện bắt buộc cho trang chủ).
+   • Trình duyệt KHÔNG hỗ trợ (hoặc người dùng bật "giảm chuyển động")
+     → nội dung hiển thị bình thường. Progressive enhancement: không
+     bao giờ mất nội dung.
+   • Dùng thuộc tính `translate` / `scale` (KHÔNG phải `transform`) để
+     không xung đột với hiệu ứng hover `hover:-translate-y-1` trên thẻ.
+   ================================================================== */
+
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    translate: 0 30px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@keyframes reveal-scale {
+  from {
+    opacity: 0;
+    scale: 0.95;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+/* Hiệu ứng xuất hiện ngay khi trang tải (dùng cho hero — không phụ
+   thuộc scroll nên hoạt động ở mọi trình duyệt). */
+@media (prefers-reduced-motion: no-preference) {
+  .anim-rise {
+    animation: reveal-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .anim-rise-1 {
+    animation-delay: 0.06s;
+  }
+  .anim-rise-2 {
+    animation-delay: 0.14s;
+  }
+  .anim-rise-3 {
+    animation-delay: 0.22s;
+  }
+  .anim-rise-4 {
+    animation-delay: 0.3s;
+  }
+  .anim-rise-5 {
+    animation-delay: 0.38s;
+  }
+  .anim-rise-6 {
+    animation-delay: 0.46s;
+  }
+}
+
+/* Hiệu ứng xuất hiện khi cuộn tới — chỉ bật ở trình duyệt hỗ trợ. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: reveal-up linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 45%;
+    }
+    .reveal-item {
+      animation: reveal-up linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 35%;
+    }
+    .reveal-scale {
+      animation: reveal-scale linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 40%;
+    }
+  }
+}
