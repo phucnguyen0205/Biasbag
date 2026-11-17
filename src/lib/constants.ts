@@ -4,6 +4,13 @@ export const SITE = {
   tagline: "Túi xách thời trang cho giới trẻ",
   description:
     "BIAS BAG chuyên kinh doanh và phân phối túi xách thời trang với mẫu mã đa dạng, thiết kế hiện đại. Chất liệu chọn lọc, mức giá hợp lý, giao hàng toàn quốc.",
+  /**
+   * Mô tả dùng cho meta description mặc định (SEO).
+   * Tách riêng khỏi `description` (nội dung hiển thị ở footer) vì hai mục
+   * đích khác nhau: footer cần câu văn thương hiệu, SEO cần từ khoá.
+   */
+  seoDescription:
+    "BIAS BAG chuyên túi vải canvas dày dặn, thiết kế độc bản và nhận in hình cá nhân, idol sắc nét — giá hợp lý, giao nhanh toàn quốc.",
   currency: "VND",
   locale: "vi-VN",
   phone: "094 841 66 60",

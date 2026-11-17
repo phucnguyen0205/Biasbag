@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -16,6 +17,7 @@ import { getBanners } from "@/lib/data/banners";
 import ProductCard from "@/components/product/product-card";
 import HeroCarousel from "@/components/home/hero-carousel";
 import { SITE, STYLE_LINES, CHANNELS } from "@/lib/constants";
+import { buildPageMetadata } from "@/lib/seo";
 
 /**
  * ISR — trang chủ được cache lại mỗi 5 phút.
@@ -28,6 +30,9 @@ import { SITE, STYLE_LINES, CHANNELS } from "@/lib/constants";
  * xoá cache ngay lập tức.
  */
 export const revalidate = 300;
+
+/** SEO trang chủ — tiêu đề + thẻ mô tả hiển thị trên Google. */
+export const metadata: Metadata = buildPageMetadata("home");
 
 const HIGHLIGHTS = [
   {
@@ -105,7 +110,7 @@ export default async function HomePage() {
         url: BASE_URL,
         logo: `${BASE_URL}${SITE.logoOg}`,
         image: `${BASE_URL}${SITE.logoOg}`,
-        description: SITE.description,
+        description: SITE.seoDescription,
         email: SITE.email,
         telephone: SITE.phone,
         address: {
@@ -120,7 +125,7 @@ export default async function HomePage() {
         "@id": `${BASE_URL}/#website`,
         url: BASE_URL,
         name: SITE.name,
-        description: SITE.description,
+        description: SITE.seoDescription,
         inLanguage: "vi-VN",
         publisher: { "@id": `${BASE_URL}/#organization` },
         potentialAction: {

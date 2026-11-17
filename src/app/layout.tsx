@@ -27,10 +27,12 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://biasbag.vn",
   ),
   title: {
-    default: `${SITE.name} — ${SITE.slogan}`,
+    // Trang chủ khai báo metadata riêng (absolute) — giá trị default ở đây
+    // chỉ là fallback cho các route chưa khai báo title.
+    default: "BIAS BAG – Túi Vải Canvas Thiết Kế & In Theo Yêu Cầu",
     template: `%s | ${SITE.name}`,
   },
-  description: SITE.description,
+  description: SITE.seoDescription,
   applicationName: SITE.name,
   generator: "Next.js",
   icons: {
@@ -40,17 +42,20 @@ export const metadata: Metadata = {
     apple: [{ url: SITE.logoOg, type: "image/png", sizes: "512x323" }],
   },
   keywords: [
+    "túi vải canvas",
     "túi xách",
-    "túi xách nữ",
-    "túi tote",
+    "túi tote canvas",
+    "túi canvas in hình",
+    "túi in idol",
+    "túi canvas theo yêu cầu",
     "balo laptop",
     "túi đeo vai",
     "phụ kiện thời trang",
-    "mua túi xách giá rẻ",
+    "mua túi vải canvas giá rẻ",
   ],
   openGraph: {
-    title: `${SITE.name} — ${SITE.slogan}`,
-    description: SITE.description,
+    title: "BIAS BAG – Túi Vải Canvas Thiết Kế & In Theo Yêu Cầu",
+    description: SITE.seoDescription,
     type: "website",
     locale: "vi_VN",
     siteName: SITE.name,
@@ -58,8 +63,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: `${SITE.name} — ${SITE.slogan}`,
-    description: SITE.description,
+    title: "BIAS BAG – Túi Vải Canvas Thiết Kế & In Theo Yêu Cầu",
+    description: SITE.seoDescription,
     images: [SITE.logoOg],
   },
   robots: { index: true, follow: true },

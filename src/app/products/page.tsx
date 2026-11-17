@@ -7,12 +7,9 @@ import ProductCard from "@/components/product/product-card";
 import ProductFilters from "@/components/product/product-filters";
 import { cn } from "@/lib/utils";
 import type { SortOption } from "@/lib/types";
+import { buildPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Sản phẩm",
-  description:
-    "Túi tote canvas in hình K-Pop, logo thương hiệu, địa điểm Việt Nam và họa tiết Y2K — dòng sản phẩm BIAS BAG cho học sinh, sinh viên và người trẻ.",
-};
+export const metadata: Metadata = buildPageMetadata("products");
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 

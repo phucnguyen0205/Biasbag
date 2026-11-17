@@ -6,6 +6,7 @@ import { getPosts, getPostTags } from "@/lib/data/posts";
 import { SITE } from "@/lib/constants";
 import { cn, formatDate } from "@/lib/utils";
 import type { Post } from "@/lib/types";
+import { buildPageMetadata } from "@/lib/seo";
 
 /**
  * Trang danh sách bài viết.
@@ -22,41 +23,7 @@ import type { Post } from "@/lib/types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://biasbag.vn";
 
-export const metadata: Metadata = {
-  // Root layout đã có template `%s | BIAS BAG`; khai báo lại ở đây để
-  // tiêu đề trang blog dùng đúng template đó.
-  title: {
-    default: "Bài viết — Kiếm thức túi tote & phong cách trẻ",
-    template: "%s | BIAS BAG",
-  },
-  description:
-    "Kiến thức phối đồ, bảo quản túi canvas, cách chọn túi tote theo dáng người và mẹo hay dành cho giới trẻ — blog BIAS BAG.",
-  keywords: [
-    "blog túi xách",
-    "mẹo phối đồ",
-    "bảo quản túi canvas",
-    "cách chọn túi tote",
-    "túi tote giá rẻ",
-  ],
-  alternates: { canonical: `${BASE_URL}/blog` },
-  openGraph: {
-    title: "Bài viết — Kiến thức túi tote & phong cách trẻ",
-    description:
-      "Kiến thức phối đồ, bảo quản túi canvas, cách chọn túi tote theo dáng người và mẹo hay dành cho giới trẻ.",
-    url: `${BASE_URL}/blog`,
-    type: "website",
-    siteName: SITE.name,
-    locale: "vi_VN",
-    images: [{ url: SITE.logoOg, width: 512, height: 323, alt: SITE.name }],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Bài viết — Kiến thức túi tote & phong cách trẻ",
-    description:
-      "Kiến thức phối đồ, bảo quản túi canvas, cách chọn túi tote theo dáng người và mẹo hay dành cho giới trẻ.",
-    images: [SITE.logoOg],
-  },
-};
+export const metadata: Metadata = buildPageMetadata("blog");
 
 /** ISR — bài viết mới hiện sau tối đa 5 phút. */
 export const revalidate = 300;

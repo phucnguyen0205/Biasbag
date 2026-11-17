@@ -11,12 +11,9 @@ import {
 } from "lucide-react";
 import { SITE } from "@/lib/constants";
 import ContactForm from "@/components/contact/contact-form";
+import { buildPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Liên hệ",
-  description:
-    "Liên hệ BIAS BAG qua hotline, email, Messenger hoặc form trực tuyếp để được tư vấn nhanh nhất.",
-};
+export const metadata: Metadata = buildPageMetadata("contact");
 
 const CHANNELS = [
   {

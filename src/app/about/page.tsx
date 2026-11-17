@@ -10,12 +10,9 @@ import {
   Target,
 } from "lucide-react";
 import { CORE_VALUES, SITE, STYLE_LINES } from "@/lib/constants";
+import { buildPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Về BIAS BAG",
-  description:
-    "BIAS BAG — thương hiệu túi xách thời trang cho giới trẻ Việt Nam. Tầm nhìn, sứ mệnh và giá trị cốt lõi.",
-};
+export const metadata: Metadata = buildPageMetadata("about");
 
 /**
  * Ảnh minh hoạ cho từng khối nội dung.
