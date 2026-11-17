@@ -93,6 +93,65 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
 
   /**
+   * Redirect slug sản phẩm cũ → slug mới.
+   *
+   * Admin đã đổi tên sản phẩm cho khớp ảnh thật, dẫn tới slug mới (theo đúng
+   * thuật toán `slugify` mà form admin dùng). Các URL cũ đã được Google index
+   * và khách đã lưu bookmark → cần redirect 301 về slug mới để không mất
+   * thứ hạng SEO và không gặy lỗi 404.
+   */
+  async redirects() {
+    return [
+      {
+        source: "/products/tui-deo-vai-nu-soft-shell-olive",
+        destination:
+          "/products/tui-vai-tote-canvas-in-hinh-blackpink-xinh-xan-phong-cach-han-quoc-tui-deo-vai-di-hoc-di-choi-tien-loi",
+        permanent: true,
+      },
+      {
+        source: "/products/tui-tote-vai-ni-nu-day-xach-nang",
+        destination:
+          "/products/tui-tote-canvas-den-in-hinh-y2k-tui-vai-deo-vai-form-rong-di-hoc-di-choi",
+        permanent: true,
+      },
+      {
+        source: "/products/tui-xach-tron-dang-tron-canvas-trang",
+        destination: "/products/tui-tote-canvas-bigbang-trang-toi-gian-basic",
+        permanent: true,
+      },
+      {
+        source: "/products/tui-deo-vai-nu-da-nau-cognac",
+        destination:
+          "/products/tui-tote-vai-canvas-in-hinh-da-nang-hoi-an-tui-vai-deo-vai-qua-luu-niem-du-lich-di-hoc-di-choi",
+        permanent: true,
+      },
+      {
+        source: "/products/cap-tote-laptop-14-inch-da-grainy",
+        destination: "/products/tui-tote-canvas-bigbang-den-in-mau-sac-net",
+        permanent: true,
+      },
+      {
+        source: "/products/tui-tote-canvas-han-quoc-day-khoang-dai",
+        destination:
+          "/products/tui-tote-canvas-bias-bag-in-hinh-7-thanh-vien-bts-tui-vai-deo-vai-kpop-form-rong-di-hoc",
+        permanent: true,
+      },
+      {
+        source: "/products/tui-xach-mini-da-tron-mau-nau",
+        destination:
+          "/products/tui-tote-canvas-in-hinh-pho-co-hoi-an-tui-vai-deo-vai-qua-luu-niem-du-lich-di-hoc-di-choi-dep",
+        permanent: true,
+      },
+      {
+        source: "/products/balo-laptop-156-inch-water-resistant",
+        destination:
+          "/products/tui-vai-tote-canvas-rose-blackpink-phong-cach-han-quoc-tui-deo-vai-nang-dong-di-choi-tien-loi",
+        permanent: true,
+      },
+    ];
+  },
+
+  /**
    * Phục vụ file xác minh Google Search Console.
    *
    * Google yêu cầu file `google<token>.html` ở thư mục gốc, nội dung:

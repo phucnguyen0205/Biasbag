@@ -19,7 +19,8 @@
     "db:push": "tsx scripts/db-push.ts",
     "logo:optimize": "tsx scripts/optimize-logo.ts",
     "banner:optimize": "tsx scripts/optimize-banners.ts",
-    "check:banner-columns": "tsx --env-file=.env.local scripts/check-banner-columns.ts"
+    "check:banner-columns": "tsx --env-file=.env.local scripts/check-banner-columns.ts",
+    "sync:products": "tsx --env-file=.env.local scripts/sync-product-data.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

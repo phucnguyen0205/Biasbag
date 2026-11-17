@@ -47,6 +47,36 @@ const CARD_PRODUCT_COLUMNS_INNER = CARD_PRODUCT_COLUMNS.replace(
   "categories!inner ( id, name, slug )",
 );
 
+/**
+ * Chuẩn hoá hàng sản phẩm từ Supabase về `ProductWithCategory`.
+ *
+ * ⚠️ PostgREST trả về embed quan hệ với tên bảng GIỮ NGUYÊN (số nhiều):
+ * `categories`, không phải `category`. Trước đây code đọc `product.category`
+ * → luôn `undefined` ⇒ tên danh mục KHÔNG hiển thị ở thẻ sản phẩm, breadcrumb
+ * hay trang chi tiết, và bộ lọc theo danh mục trong trang chủ không hoạt động.
+ *
+ * Hàm này gom mọi hàng về một shape duy nhất (`category` số ít) để phần còn
+ * lại của ứng dụng chỉ cần đọc `product.category`.
+ */
+function withCategory<T extends { categories?: unknown }>(row: T) {
+  const raw = row.categories as
+    | { id: string; name: string; slug: string }
+    | { id: string; name: string; slug: string }[]
+    | null
+    | undefined;
+
+  const cat = Array.isArray(raw) ? raw[0] : raw;
+
+  return {
+    ...row,
+    category: cat
+      ? { id: cat.id, name: cat.name, slug: cat.slug }
+      : null,
+  } as Omit<T, "categories"> & {
+    category: { id: string; name: string; slug: string } | null;
+  };
+}
+
 export type ProductFilters = {
   category?: string;
   q?: string;
@@ -520,7 +550,9 @@ export async function getProducts(
     );
   }
 
-  const rows = (data ?? []) as unknown as ProductWithCategory[];
+  const rows = (data ?? []).map((r) =>
+    withCategory(r as unknown as { categories?: unknown }),
+  ) as unknown as ProductWithCategory[];
   const sorted = sortProducts(rows, sort);
   const total = count ?? sorted.length;
   const start = (page - 1) * perPage;
@@ -573,7 +605,8 @@ export async function getProductBySlug(
     logQueryError("getProductBySlug", error.message);
     return FALLBACK_PRODUCTS.find((p) => p.slug === slug) ?? null;
   }
-  return (data as unknown as ProductWithCategory) ?? null;
+  if (!data) return null;
+  return withCategory(data as unknown as { categories?: unknown }) as unknown as ProductWithCategory;
 }
 
 export async function getFeaturedProducts(
@@ -594,7 +627,62 @@ export async function getFeaturedProducts(
     logQueryError("getFeaturedProducts", error.message);
     return FALLBACK_PRODUCTS.filter((p) => p.is_featured).slice(0, limit);
   }
-  return (data as unknown as ProductWithCategory[]) ?? [];
+  return (
+    (data ?? []).map((r) =>
+      withCategory(r as unknown as { categories?: unknown }),
+    ) as unknown as ProductWithCategory[]
+  );
+}
+
+/**
+ * Lấy sản phẩm THẬT theo từng danh mục/chủ đề — dùng cho section
+ * "Năm chủ đề in, một thương hiệu" ở trang chủ.
+ *
+ * Mục đích: thay vì dùng ảnh mockup cố định (`categories.image_url` là ảnh
+ * Unsplash không liên quan tới sản phẩm), mỗi ô chủ đề hiển thị ảnh + tên +
+ * giá của sản phẩm thực sự đang bán trong danh mục đó.
+ *
+ * Trả về map theo slug danh mục → danh sách sản phẩm (đã sort sẵn), để
+ * server render 1 lần cho cả 5 ô thay vì 5 lần query tuần tự.
+ */
+export async function getCategoryShowcase(
+  perCategory = 3,
+): Promise<Record<string, ProductWithCategory[]>> {
+  if (!isSupabaseConfigured()) {
+    // Fallback: gom sản phẩm mẫu theo slug danh mục.
+    const map: Record<string, ProductWithCategory[]> = {};
+    for (const p of FALLBACK_PRODUCTS) {
+      const slug = p.category?.slug;
+      if (!slug) continue;
+      (map[slug] ??= []).push(p);
+    }
+    for (const k of Object.keys(map)) map[k] = map[k].slice(0, perCategory);
+    return map;
+  }
+
+  const supabase = createPublicClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select(CARD_PRODUCT_COLUMNS)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    logQueryError("getCategoryShowcase", error.message);
+    return {};
+  }
+
+  const map: Record<string, ProductWithCategory[]> = {};
+  for (const raw of (data ?? []).map((r) =>
+    withCategory(r as unknown as { categories?: unknown }),
+  ) as unknown as ProductWithCategory[]) {
+    const slug = raw.category?.slug;
+    if (!slug) continue;
+    const bucket = (map[slug] ??= []);
+    // Chỉ giữ `perCategory` sản phẩm đầu mỗi danh mục.
+    if (bucket.length < perCategory) bucket.push(raw);
+  }
+  return map;
 }
 
 export async function getRelatedProducts(
@@ -617,7 +705,11 @@ export async function getRelatedProducts(
   }
 
   const { data } = await query.neq("id", product.id).limit(limit);
-  return (data as unknown as ProductWithCategory[]) ?? [];
+  return (
+    (data ?? []).map((r) =>
+      withCategory(r as unknown as { categories?: unknown }),
+    ) as unknown as ProductWithCategory[]
+  );
 }
 
 export async function getAdminProducts(): Promise<ProductWithCategory[]> {
@@ -627,7 +719,11 @@ export async function getAdminProducts(): Promise<ProductWithCategory[]> {
     .from("products")
     .select(PRODUCT_COLUMNS)
     .order("created_at", { ascending: false });
-  return (data as unknown as ProductWithCategory[]) ?? [];
+  return (
+    (data ?? []).map((r) =>
+      withCategory(r as unknown as { categories?: unknown }),
+    ) as unknown as ProductWithCategory[]
+  );
 }
 
 /** Tin nhắn từ form liên hệ (chỉ admin đọc được — RLS chặn). */

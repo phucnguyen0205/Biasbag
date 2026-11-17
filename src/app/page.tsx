@@ -12,12 +12,13 @@ import {
   Truck,
   RefreshCw,
 } from "lucide-react";
-import { getCategories, getFeaturedProducts } from "@/lib/data/products";
+import { getCategories, getCategoryShowcase, getFeaturedProducts } from "@/lib/data/products";
 import { getBanners } from "@/lib/data/banners";
 import ProductCard from "@/components/product/product-card";
 import HeroCarousel from "@/components/home/hero-carousel";
 import { SITE, STYLE_LINES, CHANNELS } from "@/lib/constants";
 import { buildPageMetadata } from "@/lib/seo";
+import { finalPrice, formatPrice } from "@/lib/utils";
 import {
   DelayedRender,
   LateBanner,
@@ -96,10 +97,11 @@ const TRUST = [
 export default async function HomePage() {
   // 3 nguồn dữ liệu độc lập → fetch SONG SONG (Promise.all) để không
   // tạo waterfall. Mỗi nguồn đều là truy vấn public, không cần session.
-  const [categories, featured, banners] = await Promise.all([
+  const [categories, featured, banners, showcase] = await Promise.all([
     getCategories(),
     getFeaturedProducts(8),
     getBanners(),
+    getCategoryShowcase(3),
   ]);
 
   const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://biasbag.vn";
@@ -256,6 +258,9 @@ export default async function HomePage() {
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               {categories.map((c, i) => {
                 const line = STYLE_LINES.find((l) => l.slug === c.slug);
+                // Sản phẩm THẬT của chủ đề này (thay cho mockup cố định).
+                const items = showcase[c.slug] ?? [];
+                const lead = items[0];
                 return (
                   <Link
                     key={c.id}
@@ -263,45 +268,81 @@ export default async function HomePage() {
                     className="reveal group flex flex-col overflow-hidden rounded-2xl border border-ink-100 bg-white transition-[transform,box-shadow,border-color] duration-300 hover:-translate-y-1 hover:border-blush-200 hover:shadow-[0_18px_40px_-24px_rgba(143,74,57,0.45)]"
                     style={{ animationRange: `entry 0% entry ${30 + i * 6}%` }}
                   >
-                <div className="relative aspect-[4/5] overflow-hidden bg-blush-50">
-                  {c.image_url ? (
-                    <Image
-                      src={c.image_url}
-                      alt={c.name}
-                      fill
-                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
-                      className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-sm text-ink-400">
-                      {c.name}
+                    <div className="relative aspect-[4/5] overflow-hidden bg-blush-50">
+                      {lead?.image_url ? (
+                        <Image
+                          src={lead.image_url}
+                          alt={lead.name}
+                          fill
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
+                          className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
+                        />
+                      ) : c.image_url ? (
+                        // Chưa có sản phẩm nào trong danh mục → dùng ảnh danh mục.
+                        <Image
+                          src={c.image_url}
+                          alt={c.name}
+                          fill
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
+                          className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-sm text-ink-400">
+                          {c.name}
+                        </div>
+                      )}
+                      <span className="absolute left-3 top-3 badge bg-white/90 text-ink-800 backdrop-blur">
+                        0{i + 1}
+                      </span>
+                      {items.length > 1 && (
+                        <span className="absolute right-3 top-3 badge bg-ink-900/80 text-white backdrop-blur">
+                          {items.length} mẫu
+                        </span>
+                      )}
                     </div>
-                  )}
-                  <span className="absolute left-3 top-3 badge bg-white/90 text-ink-800 backdrop-blur">
-                    0{i + 1}
-                  </span>
-                </div>
-                <div className="flex flex-1 flex-col p-5">
-                  <h3 className="text-base font-semibold text-ink-900">
-                    {c.name}
-                  </h3>
-                  {line && (
-                    <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-blush-600">
-                      {line.tagline}
-                    </p>
-                  )}
-                  <p className="mt-2.5 line-clamp-2 text-sm text-ink-600">
-                    {c.description}
-                  </p>
-                  <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-ink-900">
-                    Xem dòng sản phẩm
-                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
-                  </span>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+                    <div className="flex flex-1 flex-col p-5">
+                      <h3 className="text-base font-semibold text-ink-900">
+                        {c.name}
+                      </h3>
+                      {line && (
+                        <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-blush-600">
+                          {line.tagline}
+                        </p>
+                      )}
+
+                      {/* Danh sách sản phẩm thật trong chủ đề: tên + giá. */}
+                      {items.length > 0 ? (
+                        <ul className="mt-3 space-y-2 border-t border-ink-100 pt-3">
+                          {items.map((p) => (
+                            <li
+                              key={p.id}
+                              className="flex items-start gap-2 text-xs text-ink-600"
+                            >
+                              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blush-400" />
+                              <span className="line-clamp-1 flex-1">{p.name}</span>
+                              <span className="shrink-0 font-medium text-ink-900">
+                                {formatPrice(
+                                  finalPrice(p.price, p.sale_price),
+                                )}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-2.5 line-clamp-2 text-sm text-ink-600">
+                          {c.description}
+                        </p>
+                      )}
+
+                      <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-ink-900">
+                        Xem dòng sản phẩm
+                        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
       </section>
 
       {/* ── Sản phẩm nổi bật ───────────────────────────────────────────── */}
