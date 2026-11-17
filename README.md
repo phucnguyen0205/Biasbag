@@ -356,6 +356,8 @@ npm run db:push        # đẩy schema + seed lên Supabase (CLI, fallback Manag
 npm run auth:admin     # tạo/nâng tài khoản admin (--email, --password)
 npm run logo:optimize  # sinh lại logo.png / logo-white.png / logo-og.png đã tối ưu
 npm run banner:optimize # sinh lại public/banners/*.webp từ assets/banners/
+npm run perf:heavy-image # sinh ảnh nặng ~2.4MB dùng cho benchmark LCP
+npm run measure:perf    # đo ma trận hiệu năng bằng Lighthouse (cần: npm i -g lighthouse)
 ```
 
 `npm run seed:images` cần `SUPABASE_SERVICE_ROLE_KEY` trong `.env.local` và chỉ nên chạy cục bộ.
@@ -665,6 +667,76 @@ Script kiểm tra:
 > Mục "không chứa thẻ HTML" chính là kiểm tra lỗi
 > *"Sơ đồ trang web của bạn dường như là một trang HTML"* mà Google Search
 > Console báo.
+
+## Kiểm thử hiệu năng (cố tình hạ điểm PageSpeed)
+
+Bộ công cụ **cố tình làm hỏng** chỉ số hiệu năng của trang chủ, dùng để:
+
+- benchmark: đo tác động của từng yếu tố lên PageSpeed Insights
+- test trạng thái UI khi trang tải chậm (banner đến muộn, nội dung đến muộn)
+- kiểm tra hệ thống có xử lý được tình huống xấu hay không
+
+**Mặc định TẮT** — trang chạy bình thường, điểm Performance ~82 (mobile).
+
+### Bật / tắt
+
+Bật/tắt bằng biến môi trường `NEXT_PUBLIC_PERF_DEGRADE`:
+
+```bash
+# .env.local (local) — hoặc trên Vercel:
+# vercel env add NEXT_PUBLIC_PERF_DEGRADE production
+
+NEXT_PUBLIC_PERF_DEGRADE=tbt:300,lcp:1500,cls:180   # → điểm ~50
+NEXT_PUBLIC_PERF_DEGRADE=                            # → tắt, về ~82
+```
+
+Sau khi đổi biến môi trường phải **deploy lại** mới có hiệu lực (biến
+`NEXT_PUBLIC_*` được inline lúc build).
+
+### Các cờ
+
+| Cờ     | Tác động                                              | Cường độ | Mặc định |
+| ------ | ----------------------------------------------------- | -------- | -------- |
+| `tbt`  | Khoá Main Thread → TBT tăng (30% tổng điểm)         | ms block | 500ms    |
+| `cls`  | Banner cao chèn muộn, không set height → CLS (25%)   | px cao   | 150px    |
+| `lcp`  | Trì hoãn hiện ảnh hero → LCP tăng (25% tổng điểm)   | ms trễ   | 1500ms   |
+| `delay`| Trì hoãn render toàn bộ nội dung chính → LCP (25%)   | ms trễ   | 1500ms   |
+| `heavy`| Ảnh hero nặng ~2.4MB thay ảnh tối ưu                | —        | tắt     |
+| `all`  | Bật tất cả                                            | —        | —        |
+
+Mỗi cờ kèm **cường độ** để tinh chỉnh: `tbt:800`, `cls:300`, `lcp:2000`.
+
+### Kết quả đo thực tế
+
+Đo bằng Lighthouse (preset mobile = giống PageSpeed Insights) trên
+production `biasbag.shop`:
+
+| Cờ                     | Điểm    | TBT      | CLS   | LCP    |
+| ---------------------- | ------- | -------- | ----- | ------ |
+| baseline (tắt)        | **82**  | 80 ms    | 0     | 4.7 s  |
+| `tbt:500`              | 67      | 1,390 ms | 0     | 3.2 s  |
+| `delay`                | 55–63   | 170 ms   | 0.903 | 4.0 s  |
+| `tbt:200,lcp:1200,cls` | 53–62   | 680 ms   | 0.182 | 4.6 s  |
+| `tbt:300,lcp:1500,cls` | **44–56** (TB 51) | 900 ms | 0.219 | 4.6 s |
+
+### Đo lại
+
+```bash
+npm i -g lighthouse        # cần thiết
+npm run measure:perf       # preset mobile, đo ma trận cờ (build + start server)
+npm run measure:perf -- desktop
+npm run measure:perf -- mobile "tbt:300,lcp:1500,cls:180"   # đo tổ hợp cụ thể
+```
+
+Script `scripts/tune-perf-target.sh` tự tìm tổ hợp cho một điểm mục tiêu bằng
+cách deploy preview trên chính hạ tầng Vercel rồi đo.
+
+> ⚠️ **Không bật trên production nếu không cố ý** — người dùng thật sẽ phải
+> chờ, và SEO/marketing có thể bị ảnh hưởng. Tắt lại bằng cách xoá biến:
+> ```bash
+> vercel env rm NEXT_PUBLIC_PERF_DEGRADE production --yes
+> vercel --prod
+> ```
 
 ## Thanh toán
 

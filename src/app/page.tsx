@@ -152,21 +152,19 @@ export default async function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      {/* ⚠️ KIỂM THỬ HIỆU NĂNG — kéo CLS (25% tổng điểm).
-          Banner cao 150px chèn muộn 1.2s mà không đặt sẵn chiều cao →
-          toàn bộ nội dung bên dưới bị đẩy xuống ~150px.
-          Chỉ hoạt động khi `NEXT_PUBLIC_PERF_DEGRADE` có chứa `cls`. */}
-      <LateBanner />
-
       {/* ⚠️ KIỂM THỬ HIỆU NĂNG — kéo TBT (30% tổng điểm).
-          Khoá Main Thread ~1.8s ngay sau khi trang tải xong.
+          Khoá Main Thread ngay sau khi trang tải xong.
           Chỉ hoạt động khi `NEXT_PUBLIC_PERF_DEGRADE` có chứa `tbt`. */}
       <SlowMainThread />
 
-      {/* ⚠️ KIỂM THỬ HIỆU NĂNG — kéo LCP (25% tổng điểm).
-          Trì hoãn 1.5s trước khi render nội dung chính (mô phỏng tải chậm).
-          Chỉ hoạt động khi `NEXT_PUBLIC_PERF_DEGRADE` có chứa `delay`. */}
+      {/* ⚠️ KIỂM THỬ HIỆU NĂNG — kéo CLS (25% tổng điểm).
+          Banner cao chèn muộn 1.2s mà không đặt sẵn chiều cao →
+          toàn bộ nội dung bên dưới bị đẩy xuống.
+          Đặt BÊN TRONG `DelayedRender` để không xung đột với cờ `delay`
+          (nếu đặt ngoài, banner sẽ bị placeholder che mất → CLS = 0). */}
       <DelayedRender>
+        <LateBanner />
+
       {/* ── Hero ───────────────────────────────────────────────────────────
           Banner nền dạng carousel. Lớp overlay giữ wordmark + tagline +
           mô tả + CTA.

@@ -5,7 +5,10 @@ import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getBannerBlur } from "@/lib/banners/placeholder";
-import { PERF_DEGRADE_FLAGS } from "@/components/perf/perf-degrade";
+import {
+  PERF_DEGRADE_FLAGS,
+  useHeroImageDelay,
+} from "@/components/perf/perf-degrade";
 import type { Banner } from "@/lib/types";
 
 /** Thời gian mỗi lần chuyển banner (ms). */
@@ -54,6 +57,8 @@ export default function HeroCarousel({
 }) {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+  // ⚠️ Kiểm thử hiệu năng: trì hoãn hiện ảnh nền hero → kéo LCP.
+  const heroReady = useHeroImageDelay();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const count = banners.length;
@@ -131,9 +136,12 @@ export default function HeroCarousel({
           Mỗi banner có thể có 2 ảnh:
           - `image_url`        → ảnh ngang, dùng từ `md` trở lên.
           - `image_url_mobile` → ảnh dọc, chỉ dùng trên màn hình hẹp (<`md`).
-          Nếu không có ảnh mobile thì dùng chung ảnh desktop (fallback). */}
+          Nếu không có ảnh mobile thì dùng chung ảnh desktop (fallback).
+
+          ⚠️ `heroReady === false` chỉ xảy ra khi bật cờ kiểm thử hiệu năng
+          `lcp` → ảnh nền (phần tử LCP) bị giữ lại để kéo LCP xuống. */}
       <div className="absolute inset-0">
-        {banners.map((b, i) =>
+        {heroReady && banners.map((b, i) =>
           visibleIndexes.includes(i) ? (
             <div
               key={b.id}
@@ -160,15 +168,17 @@ export default function HeroCarousel({
 
               {/* Ảnh ngang — ẩn dưới `md` nếu đã có ảnh mobile riêng. */}
               {/*
-                ⚠️ Nhánh KIỂM THỬ HIỆU NĂNG (`PERF_DEGRADE_FLAGS.lcp`):
+                ⚠️ Nhánh KIỂM THỬ HIỆU NĂNG (`PERF_DEGRADE_FLAGS.heavy`):
                 thay `<Image priority>` bằng `<img>` thuần trỏ tới ảnh nặng
                 (~2.4 MB), KHÔNG preload, KHÔNG `fetchpriority="high"` →
                 LCP tăng mạnh.
 
+                Cần chạy `npm run perf:heavy-image` để sinh ảnh.
+
                 Khi cờ tắt (mặc định) → dùng `<Image priority>` như cũ, giữ
-                nguyên 99% điểm.
+                nguyên điểm hiện tại.
               */}
-              {PERF_DEGRADE_FLAGS.lcp ? (
+              {PERF_DEGRADE_FLAGS.heavy ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src="/banners/perf-heavy.jpg"

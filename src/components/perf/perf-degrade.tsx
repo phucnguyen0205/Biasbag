@@ -15,26 +15,36 @@ import { useEffect, useState } from "react";
  *
  * ── Cú pháp ────────────────────────────────────────────────────────────────
  *
- *   NEXT_PUBLIC_PERF_DEGRADE=tbt,cls
+ *   NEXT_PUBLIC_PERF_DEGRADE=<cờ>[:<cường độ>][,<cờ>[:<cường độ>]…]
  *
- * Mỗi mục có thể kèm cường độ: `tbt:600`, `cls:300`, `lcp`, `delay:2000`.
- * Cường độ là **số mili-giây** (cho tbt/cls/delay) — cho phép tinh chỉnh để
- * chạm đúng một điểm mục tiêu (ví dụ 55%) thay vì rơi quá sâu.
+ * Mỗi cờ có **cường độ điều chỉnh được** → có thể tinh chỉnh để chạm đúng
+ * một điểm mục tiêu thay vì rơi quá sâu.
  *
- * | Cờ      | Tác động                                                    | Mặc định |
- * |---------|-------------------------------------------------------------|----------|
- * | `tbt`   | Khoá Main Thread → TBT tăng (30% tổng điểm)               | 500ms    |
- * | `cls`   | Banner cao chèn muộn, không set height → CLS tăng (25%)     | 150ms    |
- * | `lcp`   | Ảnh nặng, không preload → LCP tăng (25%)                    | 2.4MB    |
- * | `delay` | Trì hoãn render nội dung chính → LCP tăng (25%)              | 1500ms   |
+ * | Cờ    | Tác động                                              | Cường độ | Mặc định |
+ * |-------|-------------------------------------------------------|----------|----------|
+ * | `tbt` | Khoá Main Thread → TBT tăng (30% tổng điểm)         | ms block | 500ms    |
+ * | `cls` | Banner cao chèn muộn, không set height → CLS (25%)   | px cao   | 150px    |
+ * | `lcp` | Trì hoãn hiện ảnh hero → LCP tăng (25% tổng điểm)   | ms trễ   | 1500ms   |
+ * | `delay`| Trì hoãn render toàn bộ nội dung chính → LCP (25%)   | ms trễ   | 1500ms   |
+ * | `heavy`| Dùng ảnh hero nặng (~2.4 MB) thay ảnh tối ưu        | —        | tắt     |
  *
  * Ví dụ:
  *   ```bash
- *   NEXT_PUBLIC_PERF_DEGRADE=tbt:600          # chỉ kéo TBT
- *   NEXT_PUBLIC_PERF_DEGRADE=tbt,cls          # cả hai
- *   NEXT_PUBLIC_PERF_DEGRADE=tbt:400,cls:200  # tinh chỉnh
- *   NEXT_PUBLIC_PERF_DEGRADE=all              # bật tất cả, mặc định
+ *   NEXT_PUBLIC_PERF_DEGRADE=tbt                  # chỉ kéo TBT
+ *   NEXT_PUBLIC_PERF_DEGRADE=tbt,cls              # TBT + CLS
+ *   NEXT_PUBLIC_PERF_DEGRADE=tbt:800,lcp:2000     # tinh chỉnh
+ *   NEXT_PUBLIC_PERF_DEGRADE=all                  # bật tất cả, mặc định
  *   ```
+ *
+ * ── Kết quả đo thực tế (Lighthouse preset mobile, đo trên production) ────
+ *
+ *   | Cờ                    | Điểm | TBT      | CLS   | LCP    |
+ *   |-----------------------|------|----------|-------|--------|
+ *   | baseline (tắt)       |  82  | 80 ms    | 0     | 4.7 s  |
+ *   | `tbt:500`             |  67  | 1,390 ms | 0     | 3.2 s  |
+ *   | `delay`               |  55–63 | 170 ms | 0.903 | 4.0 s  |
+ *   | `tbt:200,lcp:1200,cls`|  53–62 | 680 ms | 0.182 | 4.6 s  |
+ *   | `tbt:300,lcp:1500,cls`|  44–56 | 900 ms | 0.219 | 4.6 s  | ← preset
  *
  * ⚠️ **KHÔNG BAO GIỜ** set biến này trên production nếu không cố ý.
  * Bật trên production sẽ làm điểm PageSpeed của shop tụt về ~50–55% và
@@ -45,35 +55,31 @@ import { useEffect, useState } from "react";
 /*  Tham số mặc định                                                  */
 /* ------------------------------------------------------------------ */
 
-/**
- * Thời gian khoá Main Thread (ms) → kéo TBT (30% tổng điểm).
- *
- * Mặc định 500ms — đo thực tế bằng Lighthouse (preset mobile) cho điểm
- * Performance ~55 (biến động 53–56 giữa các lần chạy). Giá trị này được
- * chọn để chạm đúng mục tiêu "99% → ~55%" mà không rơi quá sâu.
- */
+/** Thời gian khoá Main Thread (ms) → kéo TBT (30% tổng điểm). */
 const DEFAULT_TBT_BLOCK_MS = 500;
 
-/** Độ trễ trước khi chèn banner (ms) → kéo CLS (25% tổng điểm). */
-const DEFAULT_CLS_DELAY_MS = 1200;
+/** Chiều cao banner chèn muộn (px) → kéo CLS (25% tổng điểm). */
+const DEFAULT_CLS_BANNER_PX = 150;
 
-/** Độ trễ trước khi render nội dung chính (ms) → kéo LCP (25% tổng điểm). */
+/** Độ trễ trước khi hiện ảnh hero (ms) → kéo LCP (25% tổng điểm). */
 const DEFAULT_LCP_DELAY_MS = 1500;
 
-/** Chiều cao banner chèn muộn (px) → gây dịch chuyển bố cục. */
-const CLS_BANNER_HEIGHT = 150;
+/** Độ trễ trước khi render nội dung chính (ms) → kéo LCP (25% tổng điểm). */
+const DEFAULT_CONTENT_DELAY_MS = 1500;
 
 type DegradeFlags = {
   tbt: boolean;
   cls: boolean;
   lcp: boolean;
   delay: boolean;
+  heavy: boolean;
 };
 
 type Config = DegradeFlags & {
   tbtBlockMs: number;
-  clsDelayMs: number;
+  clsBannerPx: number;
   lcpDelayMs: number;
+  contentDelayMs: number;
 };
 
 /**
@@ -91,17 +97,17 @@ function readConfig(): Config {
     .filter(Boolean);
 
   /**
-   * Tìm mục có tên `name` và trả về cường độ (ms) nếu có.
+   * Tìm mục có tên `name` và trả về cường độ nếu có.
    *
    *   "tbt"        → không có cường độ → dùng mặc định
-   *   "tbt:600"    → cường độ 600
+   *   "tbt:800"    → cường độ 800
    */
-  const find = (name: string): { on: boolean; ms?: number } => {
+  const find = (name: string): { on: boolean; value?: number } => {
     for (const item of items) {
-      const [key, value] = item.split(":");
+      const [key, rawValue] = item.split(":");
       if (key.trim() !== name) continue;
-      const ms = value ? Number(value) : NaN;
-      return { on: true, ...(Number.isFinite(ms) ? { ms } : {}) };
+      const value = rawValue ? Number(rawValue) : NaN;
+      return { on: true, ...(Number.isFinite(value) ? { value } : {}) };
     }
     return { on: false };
   };
@@ -119,9 +125,11 @@ function readConfig(): Config {
     cls: all || cls.on,
     lcp: all || lcp.on,
     delay: all || delay.on,
-    tbtBlockMs: tbt.ms ?? DEFAULT_TBT_BLOCK_MS,
-    clsDelayMs: cls.ms ?? DEFAULT_CLS_DELAY_MS,
-    lcpDelayMs: delay.ms ?? DEFAULT_LCP_DELAY_MS,
+    heavy: all || find("heavy").on,
+    tbtBlockMs: tbt.value ?? DEFAULT_TBT_BLOCK_MS,
+    clsBannerPx: cls.value ?? DEFAULT_CLS_BANNER_PX,
+    lcpDelayMs: lcp.value ?? DEFAULT_LCP_DELAY_MS,
+    contentDelayMs: delay.value ?? DEFAULT_CONTENT_DELAY_MS,
   };
 }
 
@@ -133,6 +141,7 @@ export const PERF_DEGRADE_FLAGS: DegradeFlags = {
   cls: CONFIG.cls,
   lcp: CONFIG.lcp,
   delay: CONFIG.delay,
+  heavy: CONFIG.heavy,
 };
 
 /** Cấu hình đầy đủ (gồm cường độ). */
@@ -140,7 +149,7 @@ export const PERF_DEGRADE_CONFIG = CONFIG;
 
 /** Có bất kỳ cờ nào đang bật không. */
 export const PERF_DEGRADE_ACTIVE =
-  CONFIG.tbt || CONFIG.cls || CONFIG.lcp || CONFIG.delay;
+  CONFIG.tbt || CONFIG.cls || CONFIG.lcp || CONFIG.delay || CONFIG.heavy;
 
 /**
  * Khoá Main Thread đồng bộ — kéo TBT.
@@ -171,10 +180,12 @@ export function SlowMainThread() {
 }
 
 /**
- * Chèn banner cao 150px sau `clsDelayMs` mà không đặt sẵn chiều cao → kéo CLS.
+ * Chèn banner cao sau `clsBannerPx` mà không đặt sẵn chiều cao → kéo CLS.
  *
  * Vì khối banner chỉ xuất hiện sau khi render, toàn bộ nội dung bên dưới bị
- * đẩy xuống ~150px → đây chính là "layout shift" mà CLS đo.
+ * đẩy xuống → đây chính là "layout shift" mà CLS đo.
+ *
+ * Cường độ = **chiều cao (px)** → càng cao, CLS càng lớn (có thể tinh chỉnh).
  */
 export function LateBanner() {
   const [show, setShow] = useState(false);
@@ -182,7 +193,8 @@ export function LateBanner() {
   useEffect(() => {
     if (!CONFIG.cls) return;
 
-    const id = window.setTimeout(() => setShow(true), CONFIG.clsDelayMs);
+    // Trễ nhỏ (1.2s) để banner xuất hiện SAU lần paint đầu tiên.
+    const id = window.setTimeout(() => setShow(true), 1200);
     return () => window.clearTimeout(id);
   }, []);
 
@@ -192,7 +204,7 @@ export function LateBanner() {
     <div
       data-perf-degrade="cls"
       style={{
-        height: `${CLS_BANNER_HEIGHT}px`,
+        height: `${CONFIG.clsBannerPx}px`,
         background: "#f5f5f5",
       }}
     >
@@ -206,20 +218,20 @@ export function LateBanner() {
 }
 
 /**
- * Hook trì hoãn: trả `false` cho tới khi đủ `lcpDelayMs`.
+ * Hook trì hoãn: trả `false` cho tới khi đủ `ms`.
  *
- * Chỉ hoạt động khi cờ `delay` bật — mặc định trả `true` ngay lập tức nên
- * trang render y như cũ.
+ * Chỉ hoạt động khi cờ bật — mặc định trả `true` ngay lập tức nên trang
+ * render y như cũ.
  */
-function usePerfContentDelay(): boolean {
-  const [ready, setReady] = useState(!CONFIG.delay);
+function useDelayed(ms: number, enabled: boolean): boolean {
+  const [ready, setReady] = useState(!enabled);
 
   useEffect(() => {
-    if (!CONFIG.delay) return;
+    if (!enabled) return;
 
-    const id = window.setTimeout(() => setReady(true), CONFIG.lcpDelayMs);
+    const id = window.setTimeout(() => setReady(true), ms);
     return () => window.clearTimeout(id);
-  }, []);
+  }, [ms, enabled]);
 
   return ready;
 }
@@ -228,16 +240,47 @@ function usePerfContentDelay(): boolean {
  * Trì hoãn render nội dung chính → kéo LCP.
  *
  * Component cha (`page.tsx`) bọc nội dung trong `<DelayedRender>`: khi cờ
- * `delay` bật, con dung **không render** cho tới khi đủ `lcpDelayMs`.
+ * `delay` bật, con dung **không render** cho tới khi đủ `contentDelayMs`.
  *
  * Vì `children` tới từ Server Component nên đã có sẵn trong RSC payload —
  * nhưng trình duyệt chỉ **paint** ra khi component render → phần tử LCP
  * (ảnh hero / tiêu đề) xuất hiện muộn → chỉ số LCP tăng.
+ *
+ * ── Vì sao giữ chỗ (`min-height`) ──────────────────────────────────────────
+ *
+ * Nếu render nội dung vào một vùng trống rồi mới đổ nội dung vào sau, toàn
+ * bộ footer/nội dung bên dưới sẽ bị đẩy xuống → phát sinh CLS lớn (0.9+)
+ * *không kiểm soát được*, làm điểm số nhảy loạn.
+ *
+ * Giữ sẵn một khối chiều cao tối thiểu giúp:
+ *   - LCP vẫn chậm (nội dung chính đến muộn) — đúng mục đích của cờ `delay`
+ *   - CLS = 0 (không có gì bị đẩy) — CLS được kiểm soát riêng bằng cờ `cls`
+ *
+ * Nhờ vậy điểm Performance phụ thuộc vào các tham số đã đoều chỉnh, ổn định
+ * hơn nhiều.
  */
 export function DelayedRender({ children }: { children: React.ReactNode }) {
-  const ready = usePerfContentDelay();
+  const ready = useDelayed(CONFIG.contentDelayMs, CONFIG.delay);
 
-  if (!ready) return null;
+  if (!ready) {
+    // Giữ chỗ → không gây layout shift khi nội dung xuất hiện.
+    return (
+      <div
+        aria-hidden
+        style={{ minHeight: "100vh", contentVisibility: "hidden" }}
+      />
+    );
+  }
 
   return <>{children}</>;
+}
+
+/**
+ * Hook dùng trong `HeroCarousel`: trì hoãn hiện ảnh nền hero → kéo LCP.
+ *
+ * Trả `true` khi ảnh nên được render. Khi cờ `lcp` bật, ảnh hero bị giữ lại
+ * `lcpDelayMs` → phần tử LCP (ảnh nền phủ kín viewport) xuất hiện muộn.
+ */
+export function useHeroImageDelay(): boolean {
+  return useDelayed(CONFIG.lcpDelayMs, CONFIG.lcp);
 }
