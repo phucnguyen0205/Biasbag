@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import { Menu, Search, ShoppingBag, ChevronDown, X } from "lucide-react";
@@ -42,6 +41,26 @@ export default function Header() {
    * chữ/logo tối để không lấn át nội dung trang.
    */
   const transparent = isHome && !scrolled;
+
+  /**
+   * ⚡ Biến thể logo đang hiển thị.
+   *
+   * ── VÌ SAO CHỈ CẦN 1 FILE ẢNH ────────────────────────────────────────────
+   *
+   * Bản "logo trắng" trước đây là bản ĐẶT BIỆT (mọi pixel RGB → trắng).
+   * Nhưng điều đó tương đương với việc áp bộ lọc CSS:
+   *
+   *     filter: brightness(0) invert(1)
+   *
+   * (nhân 0 → đen, đảo ngược → trắng; alpha giữ nguyên ⇒ kết quả y hệt bản
+   * trắng gốc).
+   *
+   * ⇒ Chỉ cần TẢI 1 file logo. Trước đây phải tải 2 (7.4KB + 11.2KB) và
+   * còn phải tiệm nạn bản còn lại ⇒ mất 11KB băng thông + 1 request.
+   *
+   * Bonus: đổi màu logo TỨC THÌ (CSS) — không nháy, không cần round-trip.
+   */
+  const logoVariant = transparent ? "white" : "dark";
 
   // Theo dõi vị trí cuộn.
   useEffect(() => {
@@ -86,36 +105,56 @@ export default function Header() {
               của trang chủ.
 
               `transparent` được tính ở server theo pathname + scroll nên
-              giá trị lúc SSR khớp với trạng thái hiển thị ban đầu. */}
+              giá trị lúc SSR khớp với trạng thái hiển thị ban đầu.
+
+              ⚡ Dùng `<picture>` + `srcSet` (thay vì `next/image`):
+              `next/image` không cho đặt `srcSet` tuỳ biện và với `unoptimized`
+              nó KHÔNG sinh `srcset` ⇒ luôn tải bản 256px (20KB).
+              Với `<picture>` + `srcSet` trình duyệt tự chọn bản 160px
+              (6.3KB AVIF) cho màn hình DPR 1–1.5 ⇒ tiết kiệm ~13KB. */}
           <Link
             href="/"
             aria-label={`${SITE.name} — về trang chủ`}
             className="relative block h-16 w-26 shrink-0"
           >
-            <Image
-              src={SITE.logo}
-              alt={SITE.name}
-              width={104}
-              height={65}
-              className={cn(
-                "absolute inset-0 h-full w-full object-contain transition-opacity duration-300",
-                transparent ? "opacity-0" : "opacity-100",
-              )}
-              priority={!transparent}
-              unoptimized
-            />
-            <Image
-              src={SITE.logoWhite}
-              alt=""
-              width={104}
-              height={65}
-              className={cn(
-                "absolute inset-0 h-full w-full object-contain transition-opacity duration-300",
-                transparent ? "opacity-100" : "opacity-0",
-              )}
-              priority={transparent}
-              unoptimized
-            />
+            <picture>
+              {/* AVIF — nhẹ hơn WebP ~47% (10.6KB vs 19.9KB ở bản 256px). */}
+              <source
+                type="image/avif"
+                srcSet={`${SITE.logoAvifSm} 160w, ${SITE.logoAvifMd} 208w, ${SITE.logoAvif} 256w`}
+                sizes="104px"
+              />
+              {/* WebP — fallback cho trình duyệt không hỗ trợ AVIF. */}
+              <source
+                type="image/webp"
+                srcSet={`${SITE.logoSm} 160w, ${SITE.logoMd} 208w, ${SITE.logo} 256w`}
+                sizes="104px"
+              />
+              {/* Fallback cuối cùng cho trình duyệt rất cũ. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={SITE.logo}
+                alt={SITE.name}
+                width={104}
+                height={65}
+                fetchPriority="high"
+                loading="eager"
+                decoding="async"
+                className={cn(
+                  "absolute inset-0 h-full w-full object-contain",
+                  /**
+                   * ⚡ Bản TRẮNG bằng CSS filter, không cần file riêng:
+                   *   brightness(0) → mọi pixel thành đen
+                   *   invert(1)     → đen thành trắng
+                   * Alpha giữ nguyên ⇒ kết quả y hệt bản logo trắng gốc.
+                   *
+                   * Nhờ vậy trang chỉ tải MỘT file logo (tiết kiệm 11KB +
+                   * 1 request) và đổi màu tức thì khi cuộn (không nháy).
+                   */
+                  logoVariant === "white" && "brightness-0 invert",
+                )}
+              />
+            </picture>
           </Link>
 
           {/* Nav desktop */}
@@ -127,6 +166,19 @@ export default function Header() {
                 <Link
                   key={link.href}
                   href={link.href}
+                  /**
+                   * ⚡ Tắt prefetch cho link menu.
+                   *
+                   * Next.js mặc định prefetch RSC payload của mọi link khi
+                   * link vào viewport ⇒ header có 5 link ⇒ 5 request `_rsc`
+                   * ngay khi trang vừa tải (tốn ~12KB, cạnh tranh băng thông
+                   * với ảnh LCP).
+                   *
+                   * Người dùng hiếm khi bấm menu ngay lúc mở trang; khi bấm
+                   * thì Next.js vẫn điều hướng nhanh (chỉ mất thêm một
+                   * round-trip RSC nhỏ).
+                   */
+                  prefetch={false}
                   className={cn(
                     "rounded-full px-3 py-2 text-sm font-medium transition-colors",
                     pathname === link.href
@@ -165,6 +217,7 @@ export default function Header() {
 
             <Link
               href="/cart"
+              prefetch={false}
               className={cn(
                 "btn-ghost relative h-11 w-11 px-0",
                 transparent

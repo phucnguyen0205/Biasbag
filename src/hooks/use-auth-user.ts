@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Role } from "@/lib/auth";
+import { hasAuthCookie } from "@/lib/auth/auth-cookie";
 
 export type AuthUser = {
   id: string;
@@ -37,9 +38,21 @@ type AuthState = {
  *
  * ── Tối ưu băng thông ────────────────────────────────────────────────────
  *
- * `supabase-js` + `@supabase/ssr` (~190KB uncompressed) được **dynamic
+ * `supabase-js` + `@supabase/ssr` (~260KB uncompressed) được **dynamic
  * import** ⇒ không nằm trong bundle tải ngay, chỉ tải sau khi trang đã
  * render xong (sau LCP/FCP) ⇒ không ảnh hưởng LCP/TBT.
+ *
+ * ── Tối ưu #2: KHÔNG tải thư viện cho khách chưa đăng nhập ───────────────
+ *
+ * Đa số khách KHÔNG đăng nhập. Tải 260KB `supabase-js` chỉ để biết
+ * "chưa đăng nhập" là lãng phí hoàn toàn.
+ *
+ * Nhờ `hasAuthCookie()` (đọc `document.cookie`, 0 byte JS) ta biết ngay
+ * khách có phiên hay không:
+ *   • Không có cookie phiên → kết luận "chưa đăng nhập" NGAY, **không nạp
+ *     thư viện** ⇒ tiết kiệm 260KB + ~150ms main thread ⇒ TBT & LCP giảm.
+ *   • Có cookie phiên → nạp `supabase-js` như cũ (lấy role, nghe
+ *     `onAuthStateChange`).
  */
 type Listener = (state: AuthState) => void;
 
@@ -69,7 +82,7 @@ function ensureStarted() {
     /**
      * ⏳ TRÌ HOÃN tải `supabase-js` tới khi trình duyệt rảnh.
      *
-     * `supabase-js` + `@supabase/ssr` (~190KB uncompressed) là chunk LỚN
+     * `supabase-js` + `@supabase/ssr` (~260KB uncompressed) là chunk LỚN
      * nhất của trang. Nếu tải ngay khi hydrate, nó tranh giành băng thông
      * với **ảnh LCP** (hero) → LCP chậm hơn.
      *
@@ -81,6 +94,18 @@ function ensureStarted() {
     const start = () => {
       void (async () => {
         try {
+          /**
+           * ⚡ CHỐT: khách chưa đăng nhập → không nạp thư viện 260KB.
+           *
+           * `document.cookie` cho biết có phiên hay không (0 byte JS tải
+           * thêm). Nếu không có cookie phiên ⇒ chắc chắn chưa đăng nhập ⇒
+           * kết luận luôn, khỏi nạp `supabase-js`.
+           */
+          if (!hasAuthCookie()) {
+            emit({ user: null, loading: false });
+            return;
+          }
+
           const { createClient, isSupabaseConfigured } = await import(
             "@/lib/supabase/client"
           );

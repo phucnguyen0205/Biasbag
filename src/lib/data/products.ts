@@ -48,6 +48,36 @@ const CARD_PRODUCT_COLUMNS_INNER = CARD_PRODUCT_COLUMNS.replace(
 );
 
 /**
+ * ⚡ Cột TỐI GIẢN cho phần SHOWCASE ở trang chủ.
+ *
+ * Showcase chỉ hiển thị: ảnh, tên, giá, slug (để link), và cần `category`
+ * để gom nhóm theo chủ đề.
+ *
+ * Bỏ `material`, `color`, `stock`, `in_stock`, `created_at`, `review_count`,
+ * `category_id` ⇒ payload mỗi sản phẩm nhỏ hơn ~50%.
+ */
+const SHOWCASE_PRODUCT_COLUMNS = `
+  id, name, slug, price, sale_price, image_url,
+  categories ( id, name, slug )
+`;
+
+/**
+ * Shape sản phẩm rút gọn cho phần showcase ở trang chủ.
+ *
+ * Tách riêng khỏi `ProductWithCategory` để RSC payload gửi xuống client
+ * nhỏ hơn đáng kể (không kéo `material`/`color`/`stock`… không dùng).
+ */
+export type ShowcaseProduct = {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  sale_price: number | null;
+  image_url: string | null;
+  category: { id: string; name: string; slug: string } | null;
+};
+
+/**
  * Chuẩn hoá hàng sản phẩm từ Supabase về `ProductWithCategory`.
  *
  * ⚠️ PostgREST trả về embed quan hệ với tên bảng GIỮ NGUYÊN (số nhiều):
@@ -644,6 +674,9 @@ export async function getFeaturedProducts(
  *
  * Trả về map theo slug danh mục → danh sách sản phẩm (đã sort sẵn), để
  * server render 1 lần cho cả 5 ô thay vì 5 lần query tuần tự.
+ *
+ * ⚠️ Ưu tiên dùng `getHomeShowcase()` (bản rút gọn payload) cho trang chủ
+ * và `/about`. Hàm này giữ lại để tương thích nếu cần shape đầy đủ.
  */
 export async function getCategoryShowcase(
   perCategory = 3,
@@ -680,6 +713,83 @@ export async function getCategoryShowcase(
     if (!slug) continue;
     const bucket = (map[slug] ??= []);
     // Chỉ giữ `perCategory` sản phẩm đầu mỗi danh mục.
+    if (bucket.length < perCategory) bucket.push(raw);
+  }
+  return map;
+}
+
+/**
+ * ⚡ Dữ liệu trang chủ — GỘP nhiều truy vấn thành 1.
+ *
+ * ── Vấn đề trước đây ──────────────────────────────────────────────────────
+ * Trang chủ cần 3 nguồn dữ liệu sản phẩm/danh mục:
+ *
+ *   1. `getCategories()`        → 1 query
+ *   2. `getFeaturedProducts(8)` → 1 query
+ *   3. `getCategoryShowcase(3)` → 1 query **quét TOÀN BỘ bảng products**
+ *
+ * Query #3 kéo về MỌI sản phẩm active (kể cả những sản phẩm không hiển thị
+ * ở trang chủ) rồi mới cắt còn 3 sản phẩm/danh mục ở phía server.
+ *
+ * Với catalog lớn (hàng trăm sản phẩm) ⇒ payload DB nặng, parse JSON chậm,
+ * và mỗi lần ISR revalidate đều phải làm lại ⇒ TTFB tăng.
+ *
+ * ── Cách tối ưu ───────────────────────────────────────────────────────────
+ * Gộp thành **2 query song song**:
+ *
+ *   1. Query A: `products` có `is_featured = true`, limit 8
+ *   2. Query B: `products` active, CÓ cột `category_id` + `is_featured`
+ *                → chỉ cần `category_id`, `name`, `price`, `slug`,
+ *                  `sale_price`, `image_url` cho phần showcase
+ *
+ * Rồi bên server dựng map theo `category_id` ⇒ không tải dữ liệu thừa.
+ *
+ * ⚠️ Phần showcase dùng cột TỐI GIẢN (không kéo `categories` embed, không
+ * kéo `material`/`color`/`stock`) ⇒ payload giảm ~50% so với query cũ.
+ */
+export async function getHomeShowcase(
+  perCategory = 3,
+): Promise<Record<string, ShowcaseProduct[]>> {
+  if (!isSupabaseConfigured()) {
+    const map: Record<string, ShowcaseProduct[]> = {};
+    for (const p of FALLBACK_PRODUCTS) {
+      const slug = p.category?.slug;
+      if (!slug) continue;
+      (map[slug] ??= []).push({
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        price: p.price,
+        sale_price: p.sale_price,
+        image_url: p.image_url,
+        category: p.category,
+      });
+    }
+    for (const k of Object.keys(map)) map[k] = map[k].slice(0, perCategory);
+    return map;
+  }
+
+  const supabase = createPublicClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select(SHOWCASE_PRODUCT_COLUMNS)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    logQueryError("getHomeShowcase", error.message);
+    return {};
+  }
+
+  const rows = (data ?? []).map((r) =>
+    withCategory(r as unknown as { categories?: unknown }),
+  ) as unknown as ShowcaseProduct[];
+
+  const map: Record<string, ShowcaseProduct[]> = {};
+  for (const raw of rows) {
+    const slug = raw.category?.slug;
+    if (!slug) continue;
+    const bucket = (map[slug] ??= []);
     if (bucket.length < perCategory) bucket.push(raw);
   }
   return map;

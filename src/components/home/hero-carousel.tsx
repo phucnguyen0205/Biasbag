@@ -13,14 +13,20 @@ const AUTOPLAY_INTERVAL = 7000;
 /**
  * Ảnh nhỏ cho thumbnail.
  *
- * Ảnh nền trong `public/banners/` có bản `-sm.webp` (960px) nhẹ hơn ~30%.
- * Chỉ dùng bản `-sm` cho ảnh nội bộ — ảnh admin upload lên Supabase Storage
- * không có bản này nên dùng luôn ảnh gốc.
+ * Ảnh nền trong `public/banners/` có bản `-thumb.webp` (128px, ~2KB) sinh
+ * sẵn lúc build → phục vụ thẳng từ CDN, KHÔNG đi qua `/_next/image`
+ * (4 request tới app server + resize cold start).
+ *
+ * Ảnh admin upload lên Supabase Storage không có bản này → dùng `next/image`
+ * với `sizes="64px"` (optimizer tự sinh bản nhỏ).
  */
+function isStaticBanner(url: string): boolean {
+  return /^\/banners\/banner-\d+/.test(url);
+}
+
+/** URL bản thumbnail tĩnh (chỉ có với ảnh nội bộ). */
 function thumbnailSrc(url: string): string {
-  return url.startsWith("/banners/")
-    ? url.replace(/\.webp$/, "-sm.webp")
-    : url;
+  return url.replace(/\.webp$/, "-thumb.webp");
 }
 
 /**
@@ -270,22 +276,38 @@ export default function HeroCarousel({
                   )}
                 >
                   {/*
-                    ⚠️ KHÔNG dùng `unoptimized` ở đây.
-                    Bản gốc `banner-N-sm.webp` nặng ~45KB, trong khi thumbnail
-                    chỉ hiển thị 64×48px. Next.js optimizer nén lại còn ~2–4KB
-                    ⇒ tiết kiệm ~160KB băng thông (4 thumbnail) mà không mất
-                    chất lượng nhìn thấy.
+                    ⚡ Ảnh nội bộ → dùng bản THUMBNAIL TĨNH 128px (~2KB),
+                    phục vụ thẳng từ CDN. Không đi qua `/_next/image` ⇒
+                    không 4 request tới app server, không resize cold start.
 
-                    `sizes="64px"` để trình duyệt chọn đúng bản nhỏ nhất.
+                    Ảnh admin upload (Supabase Storage) → `next/image` với
+                    `sizes="64px"` để optimizer sinh đúng kích thước nhỏ.
+
+                    `fetchPriority="low"` ⇒ thumbnail nằm cuối hero, KHÔNG
+                    phải LCP ⇒ không được tranh băng thông với ảnh hero.
                   */}
-                  <Image
-                    src={thumbnailSrc(b.image_url)}
-                    alt=""
-                    fill
-                    sizes="64px"
-                    quality={55}
-                    className="object-cover"
-                  />
+                  {isStaticBanner(b.image_url) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={thumbnailSrc(b.image_url)}
+                      alt=""
+                      width={64}
+                      height={48}
+                      loading="lazy"
+                      decoding="async"
+                      fetchPriority="low"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <Image
+                      src={b.image_url}
+                      alt=""
+                      fill
+                      sizes="64px"
+                      quality={55}
+                      className="object-cover"
+                    />
+                  )}
                 </button>
               ))}
             </div>

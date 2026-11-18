@@ -22,13 +22,32 @@ export const SITE = {
     shopee: "https://shopee.vn/shop/1770939006",
   },
   /**
-   * Logo (WebP — nhẹ hơn PNG ~50%: 45KB → 22KB).
+   * Logo — có bản AVIF (ưu tiên) + WebP (fallback).
    *
-   * Logo hiển thị ở kích thước 104×65px nên ảnh gốc 256×161 là dư; WebP
-   * quality 88 vẫn sắc nét ở mọi kích thước hiển thị.
+   * Logo hiển thị ở kích thước 104×65px nên ảnh gốc 256×161 là dư.
+   *
+   * ⚡ AVIF nhỏ hơn WebP ~47% với logo (hình phẳng, nhiều vùng đồng nhất):
+   *     logo.webp 256px = 19.9KB  →  logo.avif 256px = 10.6KB
+   *
+   * Header hiển thị logo NGAY ở màn hình đầu tiên (cùng cấp độ ưu tiên với
+   * ảnh LCP) ⇒ dùng `<picture>` để trình duyệt lấy AVIF ⇒ giảm ~9KB trên
+   * critical path.
+   *
+   * `-sm` là bản 160px cho `srcset` — trình duyệt sẽ tải bản này ở màn
+   * hình DPR 1–1.5 (phần lớn người dùng) thay vì bản 256px.
    */
   logo: "/logo.webp",
+  logoSm: "/logo-sm.webp",
+  logoMd: "/logo-md.webp",
+  logoAvif: "/logo.avif",
+  logoAvifSm: "/logo-sm.avif",
+  logoAvifMd: "/logo-md.avif",
   logoWhite: "/logo-white.webp",
+  logoWhiteSm: "/logo-white-sm.webp",
+  logoWhiteMd: "/logo-white-md.webp",
+  logoWhiteAvif: "/logo-white.avif",
+  logoWhiteAvifSm: "/logo-white-sm.avif",
+  logoWhiteAvifMd: "/logo-white-md.avif",
   /** Ảnh OG (share mạng xã hội) — giữ PNG vì nhiều nền tảng yêu cầu PNG/JPG. */
   logoOg: "/logo-og.png",
 } as const;

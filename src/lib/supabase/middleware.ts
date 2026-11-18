@@ -4,12 +4,73 @@ import type { Database } from "@/lib/types/database";
 import { getSupabasePublishableKey } from "./client";
 import { REMEMBER_COOKIE, applyRemember, readRemember } from "./session";
 
+/**
+ * Tên cookie phiên Supabase — `sb-<project-ref>-auth-token` (+ hậu tố chunk).
+ *
+ * Được tính từ `NEXT_PUBLIC_SUPABASE_URL` (project ref = subdomain đầu tiên).
+ */
+function getAuthCookiePrefix(): string | null {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (!url) return null;
+  try {
+    const ref = new URL(url).hostname.split(".")[0];
+    return ref ? `sb-${ref}-auth-token` : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * ⚡ ĐƯỜNG NHANH: request KHÔNG có cookie phiên ⇒ chắc chắn là khách vãng
+ * lai ⇒ không cần verify JWT, không cần refresh token.
+ *
+ * Middleware chạy trên MỌI request (kể cả ảnh, RSC prefetch, trang tĩnh).
+ * `getClaims()` phải verify JWT + đọc JWKS ⇒ tốn ~10–30ms mỗi request.
+ * Bỏ qua nó cho khách không đăng nhập ⇒ TTFB giảm rõ rệt trên lưu lượng
+ * lớn (phần lớn khách truy cập shop KHÔNG đăng nhập).
+ *
+ * An toàn: nếu không có cookie phiên thì `getClaims()` cũng trả `null` ⇒
+ * hành vi giống hệt, chỉ là bỏ qua việc làm không cần thiết.
+ */
+function hasAuthCookie(request: NextRequest): boolean {
+  const prefix = getAuthCookiePrefix();
+  if (!prefix) return true; // Không xác định được → xử lý như cũ (an toàn).
+
+  const cookies = request.cookies.getAll();
+  for (const c of cookies) {
+    if (c.name === prefix || c.name.startsWith(`${prefix}.`)) {
+      // Cookie rỗng = đã bị xoá → coi như chưa đăng nhập.
+      if (c.value && c.value.length > 0) return true;
+    }
+  }
+  return false;
+}
+
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const key = getSupabasePublishableKey();
   if (!url || !key) return response;
+
+  /**
+   * ⚡ Khách vãng lai (không có cookie phiên) → bỏ qua toàn bộ phần verify
+   * JWT. Vẫn phải kiểm tra redirect `/admin` + `/account` (khách không đăng
+   * nhập không được vào) — phần này rẻ, không gọi network.
+   */
+  if (!hasAuthCookie(request)) {
+    const { pathname } = request.nextUrl;
+
+    if (pathname.startsWith("/admin") || pathname.startsWith("/account")) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = "/login";
+      redirectUrl.search = "";
+      redirectUrl.searchParams.set("next", pathname);
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    return response;
+  }
 
   // Lựa chọn "ghi nhớ đăng nhập" của người dùng.
   //

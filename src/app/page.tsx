@@ -12,7 +12,11 @@ import {
   Truck,
   RefreshCw,
 } from "lucide-react";
-import { getCategories, getCategoryShowcase, getFeaturedProducts } from "@/lib/data/products";
+import {
+  getCategories,
+  getFeaturedProducts,
+  getHomeShowcase,
+} from "@/lib/data/products";
 import { getBanners } from "@/lib/data/banners";
 import ProductCard from "@/components/product/product-card";
 import HeroCarousel from "@/components/home/hero-carousel";
@@ -96,7 +100,7 @@ export default async function HomePage() {
     getCategories(),
     getFeaturedProducts(8),
     getBanners(),
-    getCategoryShowcase(3),
+    getHomeShowcase(3),
   ]);
 
   const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://biasbag.vn";
@@ -108,16 +112,30 @@ export default async function HomePage() {
    * ảnh đã có sẵn bộ responsive đứng yên (`banner-N-<w>.webp`). Ảnh admin
    * upload lên Supabase Storage không có bản pre-resize → không preload được
    * (vẫn được `fetchPriority="high"` trong `<img>`).
+   *
+   * ⚠️ `href` PHẢI trùng với ứng viên trong `imageSrcSet` — nếu không,
+   * trình duyệt có thể tải CẢ `href` LẪN bản chọn từ `srcset` ⇒ tải trùng.
+   * Ở đây `href` = bản 750w (ứng viên phổ biến nhất trên mobile) và
+   * `imageSrcSet` có đủ các mốc ⇒ trình duyệt chỉ tải MỘT file.
    */
   const lcpPreload = (() => {
     const first = banners[0];
     if (!first?.image_url?.startsWith("/banners/banner-")) return null;
     const b = first.image_url.replace(/\.webp$/, "");
     return {
-      href: `${b}-1080.webp`,
+      /**
+       * Định dạng ưu tiên: AVIF nhỏ hơn WebP ~20–30% ⇒ LCP nhanh hơn.
+       */
+      type: "image/avif",
+      /**
+       * ⚠️ `href` PHẢI là ứng viên HỢP LỆ trong `imageSrcSet` — nếu trỏ tới
+       * bản không có trong srcset, trình duyệt có thể tải THÊM 1 file riêng
+       * ⇒ tải trùng, mất băng thông.
+       */
+      href: `${b}-750.avif`,
       srcSet:
-        `${b}-640.webp 640w, ${b}-750.webp 750w, ${b}-1080.webp 1080w, ` +
-        `${b}-1200.webp 1200w, ${b}-1920.webp 1920w`,
+        `${b}-640.avif 640w, ${b}-750.avif 750w, ${b}-1080.avif 1080w, ` +
+        `${b}-1200.avif 1200w, ${b}-1920.avif 1920w`,
     };
   })();
 
@@ -191,7 +209,7 @@ export default async function HomePage() {
           href={lcpPreload.href}
           imageSrcSet={lcpPreload.srcSet}
           imageSizes="100vw"
-          type="image/webp"
+          type={lcpPreload.type}
           fetchPriority="high"
         />
       )}
@@ -217,6 +235,7 @@ export default async function HomePage() {
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
               href="/products"
+              prefetch={false}
               className="btn bg-white px-6 py-3 text-ink-900 hover:bg-blush-50"
             >
               Khám phá sản phẩm
@@ -224,6 +243,15 @@ export default async function HomePage() {
             </Link>
             <Link
               href="/about"
+              /**
+               * ⚡ Tắt prefetch: `/about` là route TĨNH (ISR) ⇒ Next.js tải
+               * TOÀN BỘ RSC payload của trang đó (~11KB) ngay khi trang chủ
+               * vừa tải. Tốn băng thông và tranh giành với ảnh LCP.
+               *
+               * Người dùng bấm "Về chúng tôi" sau khi đã đọc hero → vẫn điều
+               * hướng nhanh, chỉ mất thêm 1 round-trip RSC nhỏ lúc bấm.
+               */
+              prefetch={false}
               className="btn border border-white/30 px-6 py-3 text-white hover:bg-white/10"
             >
               Về chúng tôi
@@ -306,7 +334,23 @@ export default async function HomePage() {
                           src={lead.image_url}
                           alt={lead.name}
                           fill
-                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
+                          /**
+                           * ⚡ `sizes` phải KHỚP với kích thước hiển thị
+                           * thực tế, nếu không trình duyệt tải bản lớn hơn
+                           * cần thiết.
+                           *
+                           * Ô chủ đề nằm trong grid 5 cột (xl) → mỗi ô rộng
+                           * ~250px. Trước đây khai báo `20vw` ⇒ trên mobile
+                           * (390px) trình duyệt tính 20vw = 78px nhưng lại
+                           * chọn bản 750w (vì ảnh gốc chỉ có sẵn 1 kích
+                           * thước) ⇒ 17KB cho ảnh hiển thị 78px.
+                           *
+                           * `sizes` chính xác + `quality` vừa đủ ⇒ giảm
+                           * ~50% byte cho ảnh dưới fold.
+                           */
+                          sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, (max-width: 1280px) 30vw, 250px"
+                          quality={65}
+                          loading="lazy"
                           className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
                         />
                       ) : c.image_url ? (
@@ -315,7 +359,9 @@ export default async function HomePage() {
                           src={c.image_url}
                           alt={c.name}
                           fill
-                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
+                          sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, (max-width: 1280px) 30vw, 250px"
+                          quality={65}
+                          loading="lazy"
                           className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
                         />
                       ) : (
@@ -379,7 +425,15 @@ export default async function HomePage() {
 
       {/* ── Sản phẩm nổi bật ───────────────────────────────────────────── */}
       {featured.length > 0 && (
-        <section className="border-y border-ink-100 bg-blush-50/60 py-20 sm:py-24">
+        /**
+         * ⚡ `content-visibility: auto` — trình duyệt BỎ QUA việc dựng
+         * layout/paint cho section nằm ngoài viewport ⇒ giảm thời gian render
+         * ban đầu (Render Delay của LCP) mà không ảnh hưởng nội dung.
+         *
+         * `contain-intrinsic-size` cấp sẵn chiều cao ước tính để thanh
+         * cuộn không nhảy khi section được render (giữ CLS = 0).
+         */
+        <section className="border-y border-ink-100 bg-blush-50/60 py-20 [content-visibility:auto] [contain-intrinsic-size:auto_900px] sm:py-24">
           <div className="container-page">
             <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>

@@ -67,7 +67,14 @@ export default function ProductCard({
             fill
             priority={priority}
             fetchPriority={priority ? "high" : "auto"}
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, (max-width: 1280px) 25vw, 320px"
+            /**
+             * ⚡ `sizes` phải KHỚP kích thước hiển thị thực tế.
+             * Thẻ sản phẩm nằm trong grid 4 cột ⇒ mỗi thẻ rộng ~290px.
+             * Khai báo đúng ⇒ trình duyệt chọn bản 384px thay vì 750px
+             * (tiết kiệm ~50% byte mỗi ảnh).
+             */
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, (max-width: 1280px) 25vw, 290px"
+            quality={70}
             className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
           />
         ) : (

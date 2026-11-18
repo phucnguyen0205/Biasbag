@@ -102,9 +102,25 @@ export default function HeroBackground({
   // Tên file: /banners/banner-1.webp → /banners/banner-1-750.webp
   const base = src.replace(/\.webp$/, "");
 
+  /**
+   * `<picture>` với 3 tầng nguồn ảnh:
+   *
+   *   1. AVIF  — nhỏ hơn WebP ~20–30% ở cùng chất lượng ⇒ ảnh LCP về sớm hơn
+   *   2. WebP  — hỗ trợ ~97% trình duyệt hiện đại
+   *   3. `<img src>` — fallback cuối cùng (trình duyệt rất cũ)
+   *
+   * ⚠️ `src` của `<img>` trỏ tới bản responsive 750px (KHÔNG phải file gốc
+   * 57KB) — nếu trình duyệt không hiểu `srcset` thì vẫn chỉ tải ~30KB thay
+   * vì 57KB.
+   */
   return (
     <div className={cn("absolute inset-0", className)} style={wrapperStyle}>
       <picture>
+        <source
+          type="image/avif"
+          srcSet={`${base}-640.avif 640w, ${base}-750.avif 750w, ${base}-1080.avif 1080w, ${base}-1200.avif 1200w, ${base}-1920.avif 1920w`}
+          sizes="100vw"
+        />
         <source
           type="image/webp"
           srcSet={`${base}-640.webp 640w, ${base}-750.webp 750w, ${base}-1080.webp 1080w, ${base}-1200.webp 1200w, ${base}-1920.webp 1920w`}
@@ -117,7 +133,7 @@ export default function HeroBackground({
             ảnh LCP bị hoãn vẽ ⇒ LCP chậm hơn. Bỏ hẳn thuộc tính này (mặc
             định `auto`) để trình duyệt giải mã đồng bộ và vẽ ngay khi có. */}
         <img
-          src={src}
+          src={`${base}-750.webp`}
           alt={banner.alt_text ?? ""}
           fetchPriority={priority ? "high" : "auto"}
           loading={priority ? "eager" : "lazy"}

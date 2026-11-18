@@ -102,7 +102,7 @@ export default function ProductsMenu({
     >
       <div className="flex items-center">
         {/* Chữ "Sản phẩm" → vào thẳng trang sản phẩm */}
-        <Link href={link.href} className={tabClass}>
+        <Link href={link.href} prefetch={false} className={tabClass}>
           {link.label}
         </Link>
 
@@ -156,6 +156,7 @@ export default function ProductsMenu({
                 <li key={child.href}>
                   <Link
                     href={child.href}
+                    prefetch={false}
                     className={cn(
                       "block rounded-lg px-3.5 py-2.5 text-sm transition-colors",
                       isCurrent

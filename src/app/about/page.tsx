@@ -12,7 +12,7 @@ import {
 import { CORE_VALUES, SITE, STYLE_LINES } from "@/lib/constants";
 import { buildPageMetadata, SITE_URL } from "@/lib/seo";
 import { JsonLd, breadcrumbJsonLd } from "@/components/seo/json-ld";
-import { getCategoryShowcase, getFeaturedProducts } from "@/lib/data/products";
+import { getHomeShowcase, getFeaturedProducts } from "@/lib/data/products";
 import { finalPrice, formatPrice } from "@/lib/utils";
 
 export const metadata: Metadata = buildPageMetadata("about");
@@ -56,7 +56,7 @@ export default async function AboutPage() {
    * Hai nguồn fetch SONG SONG (`Promise.all`) ⇒ không tạo waterfall.
    */
   const [showcase, featured] = await Promise.all([
-    getCategoryShowcase(3),
+    getHomeShowcase(3),
     getFeaturedProducts(4),
   ]);
 
@@ -126,6 +126,11 @@ export default async function AboutPage() {
             liệu, không bị trì hoãn rasterize ngoài main thread.
           */}
           <picture>
+            <source
+              type="image/avif"
+              srcSet="/banners/banner-2-640.avif 640w, /banners/banner-2-750.avif 750w, /banners/banner-2-1080.avif 1080w, /banners/banner-2-1200.avif 1200w, /banners/banner-2-1920.avif 1920w"
+              sizes="100vw"
+            />
             <source
               type="image/webp"
               srcSet="/banners/banner-2-640.webp 640w, /banners/banner-2-750.webp 750w, /banners/banner-2-1080.webp 1080w, /banners/banner-2-1200.webp 1200w, /banners/banner-2-1920.webp 1920w"

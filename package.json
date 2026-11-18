@@ -18,6 +18,7 @@
     "logo:optimize": "tsx scripts/optimize-logo.ts",
     "banner:optimize": "tsx scripts/optimize-banners.ts",
     "banner:responsive": "tsx scripts/generate-responsive-banners.ts",
+    "font:subset": "python3 scripts/subset-fonts.py",
     "check:banner-columns": "tsx --env-file=.env.local scripts/check-banner-columns.ts",
     "sync:products": "tsx --env-file=.env.local scripts/sync-product-data.ts"
   },

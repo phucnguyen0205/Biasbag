@@ -12,10 +12,12 @@
 
    • 1 file cho MỌI weight của 1 họ font (variable axis `wght`)
      → thay vì 4–5 file riêng (400/500/600/700/800).
-   • Tổng **74KB cho 3 file** (thay vì ~764KB bản gốc / 124KB bản tĩnh).
+   • Tổng **~39KB cho 3 file** (thay vì ~764KB bản gốc / 124KB bản tĩnh).
    • 3 request font thay vì 8 → ít round-trip hơn, render chữ sớm hơn.
 
-   Sinh lại bằng: `python3 scripts/optimize-fonts.py`
+   Sinh lại bằng:
+     python3 scripts/optimize-fonts.py   (tải + subset từ Google Fonts)
+     python3 scripts/subset-fonts.py     (cắt weight + bỏ glyph & feature thừa)
 
    ⚠️ `font-display: swap` ⇒ trình duyệt vẽ bằng font hệ thống ngay,
    đổi sang webfont khi tải xong → không bao giờ hiện chữ vô hình.
@@ -34,7 +36,18 @@
 @font-face {
   font-family: "Plus Jakarta Sans";
   font-style: normal;
-  font-weight: 400 800;
+  /* ⚠️ PHẢI khớp với khoảng weight đã cắt trong file
+     (scripts/subset-fonts.py → FONT_WEIGHT_RANGE).
+
+     Font heading chỉ dùng cho TIÊU ĐỀ (`.section-title`, `.prose-bb h2/h3`)
+     với weight 600 (semibold) + 700 (bold) — đã kiểm tra toàn bộ source,
+     KHÔNG có `font-medium`/`font-normal` nào đi kèm `font-display`.
+
+     ⇒ Cắt file còn 600:700 (bỏ master 400/500) giúp file nhỏ hơn ~10%.
+
+     ⚠️ Nếu đổi khoảng ở file thì PHẢI sửa cả dòng này — nếu không trình
+     duyệt sẽ tự nội suy (font trông vẫn đúng nhưng tốn CPU). */
+  font-weight: 600 700;
   font-display: swap;
   src: url("/fonts/plus-jakarta-sans-variable.woff2") format("woff2-variations");
 }

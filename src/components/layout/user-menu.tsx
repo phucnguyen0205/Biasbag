@@ -58,7 +58,12 @@ export default function UserMenu({ transparent }: { transparent: boolean }) {
 
   if (!user) {
     return (
-      <Link href="/login" className={iconBtn} aria-label="Đăng nhập">
+      <Link
+        href="/login"
+        prefetch={false}
+        className={iconBtn}
+        aria-label="Đăng nhập"
+      >
         <UserRound className="h-[22px] w-[22px]" />
       </Link>
     );
