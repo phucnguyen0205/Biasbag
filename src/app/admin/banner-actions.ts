@@ -1,9 +1,24 @@
 "use server";
 
+/**
+ * ⚠️ FILE NÀY CÓ `"use server"` ⇒ CHỈ ĐƯỢC export **async function**.
+ *
+ * Next.js ném lỗi runtime nếu file "use server" export thêm bất kỳ giá trị
+ * nào khác (hằng số, object, class…):
+ *
+ *     A "use server" file can only export async functions, found number.
+ *
+ * Lỗi này chỉ lộ ra khi module được load (tức là khi có request tới
+ * Server Action) ⇒ admin thấy "Application error" dù mọi thứ khác ổn.
+ *
+ * `MAX_BANNERS` / `MIN_BANNERS` nằm ở `@/lib/data/banners` — import trực
+ * tiếp từ đó, KHÔNG re-export từ file này.
+ */
+
 import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server";
-import { MAX_BANNERS, MIN_BANNERS } from "@/lib/data/banners";
+import { MAX_BANNERS } from "@/lib/data/banners";
 import {
   detectBannerColumns,
   stripMissingBannerColumns,
@@ -334,5 +349,3 @@ export async function reorderBanners(
   revalidateBannerPaths();
   return { status: "success", message: "Đã đổi thứ tự banner." };
 }
-
-export { MAX_BANNERS, MIN_BANNERS };
