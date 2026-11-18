@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import { ImageIcon, Loader2, Upload, X } from "lucide-react";
 import { uploadImageAction } from "@/app/admin/upload-actions";
+import { compressImage, formatBytes } from "@/lib/image-compress";
 
 /**
  * Component upload ảnh sản phẩm.
@@ -52,17 +53,35 @@ export default function ImageUploader({
     setMessage(null);
 
     // Upload ngay khi chọn ảnh.
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("folder", folder);
-
     startTransition(async () => {
+      /**
+       * ⚡ NÉN ẢNH TRƯỚC KHI UPLOAD.
+       *
+       * Server Action của Next.js chỉ nhận body ≤ 1 MB. Ảnh sản phẩm gốc
+       * (1200–1400px) thường 2–5 MB ⇒ request bị từ chối (413) ⇒ trình
+       * duyệt hiện "Application error". Nén ở client ⇒ body luôn < 1 MB.
+       */
+      const compressed = await compressImage(file, {
+        maxWidth: 1400,
+        maxHeight: 1400,
+        quality: 0.82,
+      });
+
+      const formData = new FormData();
+      formData.append("file", compressed.file);
+      formData.append("folder", folder);
+
       const result = await uploadImageAction(formData);
 
       if (result.status === "success" && result.url) {
         setPreview(result.url);
         if (hiddenRef.current) hiddenRef.current.value = result.url;
-        setMessage({ tone: "success", text: result.message ?? "Đã upload ảnh." });
+        setMessage({
+          tone: "success",
+          text: compressed.compressed
+            ? `Đã upload ảnh (${formatBytes(compressed.originalSize)} → ${formatBytes(compressed.finalSize)}).`
+            : (result.message ?? "Đã upload ảnh."),
+        });
       } else {
         setMessage({
           tone: "error",

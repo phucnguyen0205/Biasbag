@@ -30,6 +30,49 @@ function customRemoteHosts(): {
 }
 
 const nextConfig: NextConfig = {
+  /**
+   * ⚠️ KHÔNG bật `experimental.inlineCss`.
+   *
+   * Đã A/B test bằng Lighthouse (mobile throttling):
+   *
+   *   | Cách            | Score | FCP   | LCP   | TBT  | HTML gzip |
+   *   |-----------------|-------|-------|-------|------|-----------|
+   *   | inlineCss: true |  94   | 1383  | 3067  |  21  |   46KB    |
+   *   | inlineCss: false|  96   |  921  | 2654  | 102  |   22KB    |
+   *
+   * Lý do: nhúng CSS 73KB (raw) vào HTML làm HTML gzip tăng 22KB → 46KB.
+   * Trên mạng di động bị giới hạn băng thông, việc phải tải thêm 24KB đó
+   * TÁC ĐỘNG MẠNH HƠN round-trip CSS bị bỏ đi (CSS tải SONG SONG với HTML,
+   * không phải tuần tự).
+   *
+   * ⇒ Giữ CSS ngoài (file `.css` riêng, cache dài hạn, gzip tốt).
+   */
+
+  /**
+   * ⚡ Giới hạn body cho Server Action — mặc định của Next.js chỉ **1 MB**.
+   *
+   * Upload ảnh (banner / sản phẩm) đi qua Server Action
+   * (`uploadImageAction`). Ảnh gốc 1920px thường 2–5 MB ⇒ vượt giới hạn ⇒
+   * Vercel trả `Body exceeded 1 MB limit` (HTTP 413) ⇒ trình duyệt báo
+   * "Application error: a server-side exception has occurred" (digest
+   * 3759789597).
+   *
+   * Cách xử lý ĐÚNG ĐẮN: ảnh đã được NÉN ở client trước khi upload
+   * (`src/lib/image-compress.ts`) ⇒ body luôn rất nhỏ.
+   *
+   * Con số 6MB ở đây chỉ là "lưới an toàn" cho trường hợp trình duyệt không
+   * hỗ trợ nén ảnh (Safari cũ) — khớp với `MAX_FILE_SIZE` trong
+   * `src/lib/storage.ts` (5MB) + biên an toàn cho phần multipart overhead.
+   *
+   * ⚠️ Không nên đặt quá lớn — body lớn giữ mở connection của serverless
+   * function lâu hơn ⇒ tốn băng thông/giới hạn đồng thời.
+   */
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "6mb",
+    },
+  },
+
   images: {
     /**
      * Định dạng ảnh trả về, theo thứ tự ưu tiên.
@@ -196,16 +239,14 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        source: "/logo.webp",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
-          },
-        ],
-      },
-      {
-        source: "/logo-white.webp",
+        /**
+         * Logo tĩnh — cache 1 năm (immutable).
+         *
+         * Gộp mọi biến thể (`logo.webp`, `logo-sm.webp`, `logo-white*.webp`,
+         * `logo*.avif`, `favicon.png`, `apple-touch-icon.png`) vào cùng một
+         * rule regex.
+         */
+        source: "/:file((?:logo(?:-white)?(?:-sm)?\\.(?:webp|avif))|(?:favicon|apple-touch-icon)\\.png)",
         headers: [
           {
             key: "Cache-Control",

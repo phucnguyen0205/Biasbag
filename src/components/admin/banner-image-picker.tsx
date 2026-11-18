@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import { Loader2, Upload, X } from "lucide-react";
 import { uploadImageAction } from "@/app/admin/upload-actions";
+import { compressImage, formatBytes } from "@/lib/image-compress";
 import { cn } from "@/lib/utils";
 
 /**
@@ -62,17 +63,35 @@ export default function BannerImagePicker({
     setPreview(objectUrl);
     setMessage(null);
 
-    const formData = new FormData();
-    formData.append("file", file);
-    // Ảnh mobile lưu vào thư mục riêng để dễ quản lý trong Storage.
-    formData.append("folder", name === "imageUrlMobile" ? "banners/mobile" : "banners");
-
     startTransition(async () => {
+      /**
+       * ⚡ NÉN ẢNH TRƯỚC KHI UPLOAD.
+       *
+       * Server Action của Next.js chỉ nhận body ≤ 1 MB. Ảnh banner gốc
+       * (1920px) thường 2–5 MB ⇒ request bị từ chối (413) ⇒ trình duyệt
+       * hiện "Application error". Nén ở client ⇒ body luôn < 1 MB.
+       */
+      const compressed = await compressImage(file, {
+        maxWidth: 1920,
+        maxHeight: 1920,
+        quality: 0.82,
+      });
+
+      const formData = new FormData();
+      formData.append("file", compressed.file);
+      // Ảnh mobile lưu vào thư mục riêng để dễ quản lý trong Storage.
+      formData.append("folder", name === "imageUrlMobile" ? "banners/mobile" : "banners");
+
       const result = await uploadImageAction(formData);
       if (result.status === "success" && result.url) {
         setPreview(result.url);
         if (hiddenRef.current) hiddenRef.current.value = result.url;
-        setMessage({ tone: "success", text: "Đã tải ảnh lên." });
+        setMessage({
+          tone: "success",
+          text: compressed.compressed
+            ? `Đã tải ảnh lên (${formatBytes(compressed.originalSize)} → ${formatBytes(compressed.finalSize)}).`
+            : "Đã tải ảnh lên.",
+        });
       } else {
         setMessage({
           tone: "error",
