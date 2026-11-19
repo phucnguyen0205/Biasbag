@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
@@ -191,7 +192,6 @@ export const viewport: Viewport = {
     { media: "(prefers-color-scheme: dark)", color: "#0f172a" },
   ],
 };
-
 export default function RootLayout({
   children,
 }: {
@@ -212,21 +212,6 @@ export default function RootLayout({
             fetchPriority={f.fetchPriority}
           />
         ))}
-
-        {/*
-          ⚠️ KHÔNG preload logo thủ công ở đây nữa.
-
-          React 19 TỰ ĐỘNG tạo `<link rel="preload" as="image">` cho mọi
-          `<img fetchPriority="high">` và đẩy lên `<head>` ⇒ logo được tải
-          SONG SONG với CSS/JS.
-
-          Trước đây có preload thủ công ở đây ⇒ vì khác `type`/`href` nên
-          KHÔNG bị React dedupe ⇒ 2 thẻ preload trùng nhau trong `<head>`.
-
-          Thêm nữa: logo ở header đổi bản (trắng ↔ tối) theo trạng thái
-          scroll — preload thủ công bản trắng sẽ tải thừa bản trắng trên
-          mọi trang nền trắng (nơi chỉ dùng bản tối).
-        */}
       </head>
       <body className="flex min-h-screen flex-col">
         <Header />
@@ -236,6 +221,19 @@ export default function RootLayout({
         <Toaster />
         <Analytics />
         <SpeedInsights />
+
+        {/* Google Tag / Analytics — đặt lazyOnload để không tranh băng thông với ảnh LCP */}
+        <Script
+          src="https://www.googletagmanager.com/gtm.js?id=GTM-MVXGLVS8"
+          strategy="lazyOnload"
+        />
+        <Script id="google-tag-init" strategy="lazyOnload">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+          `}
+        </Script>
       </body>
     </html>
   );
