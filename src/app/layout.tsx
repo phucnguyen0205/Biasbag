@@ -223,15 +223,16 @@ export default function RootLayout({
         <SpeedInsights />
 
         {/* Google Tag / Analytics — đặt lazyOnload để không tranh băng thông với ảnh LCP */}
-        <Script
-          src="https://www.googletagmanager.com/gtm.js?id=GTM-MVXGLVS8"
+       <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-9DRHWYX4VK"
           strategy="lazyOnload"
         />
-        <Script id="google-tag-init" strategy="lazyOnload">
+        <Script id="google-analytics" strategy="lazyOnload">
           {`
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
+            gtag('config', 'G-9DRHWYX4VK');
           `}
         </Script>
       </body>
