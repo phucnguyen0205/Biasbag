@@ -28,18 +28,8 @@ export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const cartCount = useCartCount();
 
-  const isHome = pathname === "/";
-  /**
-   * Header ở đầu trang chủ nằm trong suốt, đè lên banner.
-   *
-   * Vì ảnh banner có vùng đầu rất sáng (~200–240/255), nếu để trong suốt
-   * mà không có lớp scrim tối phía trên thì chữ trắng sẽ chìm mất tương
-   * phản. Lớp scrim đó do `hero-carousel` đảm nhiệm (gradient tối ở đỉnh
-   * ảnh), nên header chỉ cần giữ nền trong suốt + chữ/logo trắng.
-   *
-   * Cuộn xuống (hoặc sang trang khác) header đổi sang nền trắng đục +
-   * chữ/logo tối để không lấn át nội dung trang.
-   */
+  // Kiểm tra trang chủ an toàn (kể cả khi pathname rỗng lúc mới mount hoặc có locale)
+  const isHome = !pathname || pathname === "/" || pathname === "/vi";
   const transparent = isHome && !scrolled;
 
   /**
