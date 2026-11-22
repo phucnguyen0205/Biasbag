@@ -52,16 +52,24 @@ export default function Header() {
    */
   const logoVariant = transparent ? "white" : "dark";
 
-  // Theo dõi vị trí cuộn.
-  useEffect(() => {
-    function onScroll() {
-      setScrolled(window.scrollY > SCROLL_THRESHOLD);
+useEffect(() => {
+    // Ép về false ngay khi vào đầu trang chủ
+    if (isHome && window.scrollY <= SCROLL_THRESHOLD) {
+      setScrolled(false);
     }
-    onScroll();
+
+    function onScroll() {
+      const scrollTop =
+        window.scrollY ||
+        document.documentElement.scrollTop ||
+        document.body.scrollTop ||
+        0;
+      setScrolled(scrollTop > SCROLL_THRESHOLD);
+    }
+
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
+  }, [pathname, isHome]);
   // Điều hướng sang trang khác → tính lại ngay trạng thái cuộn.
   useEffect(() => {
     setScrolled(window.scrollY > SCROLL_THRESHOLD);
